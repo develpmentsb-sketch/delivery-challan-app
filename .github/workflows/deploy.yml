@@ -1,0 +1,46 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_BASE_PATH: /delivery-challan-app/
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_COMPANY_NAME: ${{ secrets.VITE_COMPANY_NAME }}
+          VITE_COMPANY_GSTIN: ${{ secrets.VITE_COMPANY_GSTIN }}
+          VITE_COMPANY_ADDRESS: ${{ secrets.VITE_COMPANY_ADDRESS }}
+          VITE_COMPANY_STATE: ${{ secrets.VITE_COMPANY_STATE }}
+          VITE_COMPANY_STATE_CODE: ${{ secrets.VITE_COMPANY_STATE_CODE }}
+          VITE_COMPANY_PINCODE: ${{ secrets.VITE_COMPANY_PINCODE }}
+          VITE_COMPANY_PHONE: ${{ secrets.VITE_COMPANY_PHONE }}
+          VITE_COMPANY_EMAIL: ${{ secrets.VITE_COMPANY_EMAIL }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
