@@ -39,7 +39,8 @@ export const PERMISSIONS = {
   'settings.view': ALL,
   'company.edit': ADMIN_ONLY,
   'users.manage': ADMIN_ONLY,
-  'backup.use': ADMIN_ONLY
+  'backup.use': ADMIN_ONLY,
+  'account.change_password': ALL
 }
 
 export function can(role, permission) {

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Pencil, Save, X, Upload, Loader2 } from 'lucide-react'
+import { Pencil, Save, X, Upload, Loader2, KeyRound } from 'lucide-react'
 import Header from '../components/Header'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -22,9 +22,10 @@ const FIELDS = [
 const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]$/
 
 export default function Settings() {
-  const { user, role, can } = useAuth()
+  const { user, role, can, changePassword } = useAuth()
   const toast = useToast()
   const canEdit = can('company.edit')
+  const canChangePassword = can('account.change_password')
 
   const [company, setCompany] = useState(getCompany())
   const [editing, setEditing] = useState(false)
@@ -32,6 +33,10 @@ export default function Settings() {
   const [saving, setSaving] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const fileInputRef = useRef(null)
+
+  const [changingPassword, setChangingPassword] = useState(false)
+  const [pwForm, setPwForm] = useState({ password: '', confirm: '' })
+  const [pwSaving, setPwSaving] = useState(false)
 
   useEffect(() => {
     loadCompanyProfile().then((c) => { setCompany(c); setForm(c) })
@@ -71,6 +76,26 @@ export default function Settings() {
       toast.error(err.message || 'Logo upload failed')
     } finally {
       setUploadingLogo(false)
+    }
+  }
+
+  function startChangePassword() { setPwForm({ password: '', confirm: '' }); setChangingPassword(true) }
+  function cancelChangePassword() { setPwForm({ password: '', confirm: '' }); setChangingPassword(false) }
+
+  async function savePassword() {
+    if (pwForm.password.length < 6) return toast.error('Password must be at least 6 characters')
+    if (pwForm.password !== pwForm.confirm) return toast.error('Passwords do not match')
+    setPwSaving(true)
+    try {
+      const { error } = await changePassword(pwForm.password)
+      if (error) throw error
+      toast.success('Password updated')
+      setChangingPassword(false)
+      setPwForm({ password: '', confirm: '' })
+    } catch (err) {
+      toast.error(err.message || 'Failed to update password')
+    } finally {
+      setPwSaving(false)
     }
   }
 
@@ -181,11 +206,50 @@ export default function Settings() {
 
         <div className="card p-5 self-start">
           <h3 className="font-semibold text-navy mb-4 text-sm">Account</h3>
-          <dl className="space-y-2 text-sm">
+          <dl className="space-y-2 text-sm mb-4">
             <Row k="Signed in as" v={user?.email} />
             <Row k="Role" v={role ? ROLE_LABELS[role] : '-'} />
             <Row k="User ID" v={user?.id} />
           </dl>
+
+          {canChangePassword && (
+            <div className="pt-4 border-t border-navy-50">
+              {!changingPassword ? (
+                <button className="btn-outline" onClick={startChangePassword}><KeyRound size={14} /> Change Password</button>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-navy-400 mb-1">New Password</label>
+                    <input
+                      className="input"
+                      type="password"
+                      minLength={6}
+                      placeholder="••••••••"
+                      value={pwForm.password}
+                      onChange={(e) => setPwForm({ ...pwForm, password: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-navy-400 mb-1">Confirm New Password</label>
+                    <input
+                      className="input"
+                      type="password"
+                      minLength={6}
+                      placeholder="••••••••"
+                      value={pwForm.confirm}
+                      onChange={(e) => setPwForm({ ...pwForm, confirm: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button className="btn-primary" onClick={savePassword} disabled={pwSaving}>
+                      {pwSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} {pwSaving ? 'Saving...' : 'Save Password'}
+                    </button>
+                    <button className="btn-outline" onClick={cancelChangePassword} disabled={pwSaving}><X size={16} /> Cancel</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <CompanyLocations />

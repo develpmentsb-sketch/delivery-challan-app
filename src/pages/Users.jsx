@@ -10,6 +10,7 @@ const PERMISSION_ROWS = [
   ['View dashboard, challans, items, partners; print / export', 'challan.view'],
   ['Create & edit challans, items, partners', 'challan.create'],
   ['Delete challans, items, partners', 'challan.delete'],
+  ['Change own password', 'account.change_password'],
   ['Manage users, Backup / Restore', 'users.manage']
 ]
 

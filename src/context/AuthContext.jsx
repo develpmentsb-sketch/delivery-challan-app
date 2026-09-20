@@ -39,6 +39,7 @@ export function AuthProvider({ children }) {
   const signIn = (email, password) => supabase.auth.signInWithPassword({ email, password })
   const signUp = (email, password) => supabase.auth.signUp({ email, password })
   const signOut = () => supabase.auth.signOut()
+  const changePassword = (newPassword) => supabase.auth.updateUser({ password: newPassword })
 
   const value = useMemo(() => {
     const profileReady = !userId || profileState.uid === userId
@@ -54,7 +55,7 @@ export function AuthProvider({ children }) {
       isAdmin: role === 'admin',
       can: (permission) => canRole(role, permission),
       refreshProfile: loadProfile,
-      signIn, signUp, signOut
+      signIn, signUp, signOut, changePassword
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, authLoading, profileState, userId, loadProfile])
