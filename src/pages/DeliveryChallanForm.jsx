@@ -126,11 +126,12 @@ const safeNumber = (value, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback
 }
 
-function Field({ label, error, children, className = '' }) {
+function Field({ label, error, children, className = '', hint }) {
   return (
     <label className={`block ${className}`}>
       <span className="block text-xs font-medium text-navy-600 mb-1">{label}</span>
       {children}
+      {hint && !error && <span className="block text-[11px] text-navy-400 mt-1">{hint}</span>}
       {error && <span className="block text-xs text-brick mt-1">{error}</span>}
     </label>
   )
@@ -430,6 +431,7 @@ function DeliveryChallanForm() {
 
     return {
       header: {
+        dc_number: String(header.dc_number || '').trim(),
         dc_date: header.dc_date || null,
         document_type: header.document_type || 'Delivery Challan',
         partner_id: partnerId || null,
@@ -586,7 +588,7 @@ function DeliveryChallanForm() {
 
     const check = validateChallan(validationInput(), calcRows)
     const errs = { ...check.errors }
-    if (!isEdit) {
+    {
       const no = String(header.dc_number || '').trim()
       if (!no) errs.dc_number = 'Enter the DC number'
       else if (!/^[A-Za-z0-9/-]{1,16}$/.test(no)) {
@@ -670,12 +672,11 @@ function DeliveryChallanForm() {
       <section className="card p-5 mb-5">
         <h2 className="text-sm font-semibold text-navy-800 mb-4">Challan details</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Field label={isEdit ? 'DC number' : 'DC number *'} error={errors.dc_number}>
+          <Field label="DC number *" error={errors.dc_number} hint={isEdit ? 'You can change this, but it must stay unique across all challans.' : undefined}>
             <input
               className="input"
               placeholder="e.g. DC-2026-0001"
               maxLength={16}
-              disabled={isEdit}
               value={header.dc_number}
               onChange={(e) => setH('dc_number', e.target.value.toUpperCase())}
             />
