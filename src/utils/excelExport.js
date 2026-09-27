@@ -1,13 +1,7 @@
 import * as XLSX from 'xlsx'
 
-/**
- * Exports the Master List (Delivery Challans) to a formatted .xlsx file.
- * Each row is flattened per delivery-challan-item so every field in the
- * spec (item-level + header-level) is present.
- */
-export function exportChallansToExcel(challans) {
+function challanRows(challans) {
   const rows = []
-
   challans.forEach((c) => {
     const billTo = c.bill_to_snapshot || {}
     const shipTo = c.ship_to_snapshot || {}
@@ -47,16 +41,57 @@ export function exportChallansToExcel(challans) {
       })
     })
   })
+  return rows
+}
 
-  const worksheet = XLSX.utils.json_to_sheet(rows)
+// Excel sheet names: max 31 chars, no \ / * ? : [ ], and must be unique per workbook.
+function safeSheetName(name, used) {
+  let base = String(name || 'Company').replace(/[\\/*?:[\]]/g, ' ').trim().slice(0, 31) || 'Company'
+  let candidate = base
+  let n = 2
+  while (used.has(candidate.toLowerCase())) {
+    candidate = `${base.slice(0, 28)} ${n}`
+    n++
+  }
+  used.add(candidate.toLowerCase())
+  return candidate
+}
 
-  // Reasonable column widths
-  worksheet['!cols'] = Object.keys(rows[0] || {}).map((key) => ({
-    wch: Math.min(Math.max(key.length + 2, 12), 40)
-  }))
-
+/**
+ * Exports the Master List (Delivery Challans) to a formatted .xlsx file.
+ * Each row is flattened per delivery-challan-item so every field in the
+ * spec (item-level + header-level) is present.
+ *
+ * With `splitByCompany: true`, each company gets its own sheet in the same
+ * workbook (mirrors the "Group by Company" view on screen), sorted A-Z.
+ */
+export function exportChallansToExcel(challans, { splitByCompany = false } = {}) {
   const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Delivery Challans')
+  const usedNames = new Set()
+
+  function addSheet(list, sheetName) {
+    const rows = challanRows(list)
+    if (!rows.length) return
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+    worksheet['!cols'] = Object.keys(rows[0]).map((key) => ({
+      wch: Math.min(Math.max(key.length + 2, 12), 40)
+    }))
+    XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(sheetName, usedNames))
+  }
+
+  if (splitByCompany) {
+    const byCompany = new Map()
+    challans.forEach((c) => {
+      const key = c.dispatch_from_snapshot?.company_name || c.dispatch_from_snapshot?.location_name || 'Unassigned - Head Office'
+      if (!byCompany.has(key)) byCompany.set(key, [])
+      byCompany.get(key).push(c)
+    })
+    ;[...byCompany.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .forEach(([company, list]) => addSheet(list, company))
+  } else {
+    addSheet(challans, 'Delivery Challans')
+  }
 
   const dateStr = new Date().toISOString().slice(0, 10)
   XLSX.writeFile(workbook, `Delivery_Challan_Report_${dateStr}.xlsx`)

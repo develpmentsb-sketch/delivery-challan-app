@@ -186,8 +186,8 @@ export default function MasterList() {
             Group by Company
           </label>
           <div className="ml-auto flex gap-2">
-            <button className="btn-outline" onClick={() => (all.length ? exportChallansToExcel(all) : toast.info('No records to export'))}>
-              <FileSpreadsheet size={16} /> Export Excel
+            <button className="btn-outline" onClick={() => (all.length ? exportChallansToExcel(all, { splitByCompany: groupByCompany }) : toast.info('No records to export'))}>
+              <FileSpreadsheet size={16} /> Export Excel{groupByCompany ? ' (by company)' : ''}
             </button>
             <button className="btn-outline" onClick={() => (all.length ? exportChallansToCSV(all) : toast.info('No records to export'))}>
               <FileText size={16} /> Export CSV
