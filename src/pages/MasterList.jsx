@@ -52,6 +52,30 @@ export default function MasterList() {
   const handleSearch = () => { setAppliedFilters(filters); setPage(1); load(filters) }
   const handleClear = () => { setFilters(emptyFilters); setAppliedFilters(emptyFilters); setPage(1); load(emptyFilters) }
 
+  // Company picks apply instantly - no need to click Search for this one.
+  const handleCompanyChange = (value) => {
+    const next = { ...filters, locationId: value }
+    setFilters(next)
+    setAppliedFilters(next)
+    setPage(1)
+    load(next)
+  }
+
+  const selectedCompanyLabel = filters.locationId === '__head'
+    ? 'Head Office'
+    : filters.locationId
+      ? (locations.find((l) => l.id === filters.locationId)?.legal_name ||
+         locations.find((l) => l.id === filters.locationId)?.location_name ||
+         'Company')
+      : ''
+
+  function handleCompanyReport() {
+    if (!all.length) return toast.info('No records to export for this company')
+    const dateStr = new Date().toISOString().slice(0, 10)
+    const safe = selectedCompanyLabel.replace(/[^A-Za-z0-9]+/g, '_')
+    exportChallansToExcel(all, { fileName: `${safe}_Report_${dateStr}.xlsx` })
+  }
+
   const paged = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE
     return all.slice(start, start + PAGE_SIZE)
@@ -168,11 +192,23 @@ export default function MasterList() {
             <option value="">All States</option>
             {INDIAN_STATES.map((s) => <option key={s.code} value={s.name}>{s.name}</option>)}
           </select>
-          <select className="input" value={filters.locationId} onChange={(e) => setFilters({ ...filters, locationId: e.target.value })}>
-            <option value="">All Companies</option>
-            <option value="__head">Head Office</option>
-            {locations.map((l) => <option key={l.id} value={l.id}>{l.legal_name || l.location_name}</option>)}
-          </select>
+          <div className="flex gap-2">
+            <select className="input flex-1" value={filters.locationId} onChange={(e) => handleCompanyChange(e.target.value)}>
+              <option value="">All Companies</option>
+              <option value="__head">Head Office</option>
+              {locations.map((l) => <option key={l.id} value={l.id}>{l.legal_name || l.location_name}</option>)}
+            </select>
+            {filters.locationId && (
+              <button
+                type="button"
+                title={`Download ${selectedCompanyLabel} report`}
+                className="btn-outline px-2 shrink-0"
+                onClick={handleCompanyReport}
+              >
+                <FileSpreadsheet size={16} />
+              </button>
+            )}
+          </div>
           <select className="input" value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
             <option value="All">All Statuses</option>
             {DC_STATUSES.map((s) => <option key={s}>{s}</option>)}

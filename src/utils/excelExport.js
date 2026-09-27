@@ -65,7 +65,7 @@ function safeSheetName(name, used) {
  * With `splitByCompany: true`, each company gets its own sheet in the same
  * workbook (mirrors the "Group by Company" view on screen), sorted A-Z.
  */
-export function exportChallansToExcel(challans, { splitByCompany = false } = {}) {
+export function exportChallansToExcel(challans, { splitByCompany = false, fileName } = {}) {
   const workbook = XLSX.utils.book_new()
   const usedNames = new Set()
 
@@ -94,7 +94,7 @@ export function exportChallansToExcel(challans, { splitByCompany = false } = {})
   }
 
   const dateStr = new Date().toISOString().slice(0, 10)
-  XLSX.writeFile(workbook, `Delivery_Challan_Report_${dateStr}.xlsx`)
+  XLSX.writeFile(workbook, fileName || `Delivery_Challan_Report_${dateStr}.xlsx`)
 }
 
 export function exportChallansToCSV(challans) {
