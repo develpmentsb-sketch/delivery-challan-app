@@ -11,7 +11,7 @@ import { listChallans, deleteChallan, getChallan } from '../services/challanServ
 import { listLocations } from '../lib/locations'
 import { listPartners } from '../services/partnerService'
 import { formatCurrency } from '../utils/calculations'
-import { exportChallansToExcel, exportChallansToCSV, exportMasterListReport } from '../utils/excelExport'
+import { exportMasterListReport } from '../utils/excelExport'
 import { openChallanPrintView } from '../utils/pdfGenerator'
 import { DC_STATUSES, INDIAN_STATES } from '../lib/constants'
 import { useToast } from '../context/ToastContext'
@@ -72,9 +72,15 @@ export default function MasterList() {
 
   function handleCompanyReport() {
     if (!all.length) return toast.info('No records to export for this company')
-    const dateStr = new Date().toISOString().slice(0, 10)
-    const safe = selectedCompanyLabel.replace(/[^A-Za-z0-9]+/g, '_')
-    exportChallansToExcel(all, { fileName: `${safe}_Report_${dateStr}.xlsx` })
+    const activeCompanyId = filters.locationId === '__head' ? null : filters.locationId || null
+    listPartners({ type: 'All', activeOnly: false })
+      .then((partners) => {
+        const scopedPartners = partners.filter((p) => !p.company_location_id || p.company_location_id === activeCompanyId)
+        const dateStr = new Date().toISOString().slice(0, 10)
+        const safe = selectedCompanyLabel.replace(/[^A-Za-z0-9]+/g, '_')
+        exportMasterListReport(all, { partners: scopedPartners, fileName: `${safe}_Master_List_Report_${dateStr}.xlsx` })
+      })
+      .catch((err) => toast.error(err.message || 'Failed to load parties for the report'))
   }
 
   async function handleMasterListReport() {
@@ -212,7 +218,7 @@ export default function MasterList() {
             {filters.locationId && (
               <button
                 type="button"
-                title={`Download ${selectedCompanyLabel} report`}
+                title={`Download ${selectedCompanyLabel} Master List Report`}
                 className="btn-outline px-2 shrink-0"
                 onClick={handleCompanyReport}
               >
@@ -233,12 +239,6 @@ export default function MasterList() {
             Group by Company
           </label>
           <div className="ml-auto flex gap-2">
-            <button className="btn-outline" onClick={() => (all.length ? exportChallansToExcel(all, { splitByCompany: groupByCompany }) : toast.info('No records to export'))}>
-              <FileSpreadsheet size={16} /> Export Excel{groupByCompany ? ' (by company)' : ''}
-            </button>
-            <button className="btn-outline" onClick={() => (all.length ? exportChallansToCSV(all) : toast.info('No records to export'))}>
-              <FileText size={16} /> Export CSV
-            </button>
             <button className="btn-outline" onClick={handleMasterListReport}>
               <FileSpreadsheet size={16} /> Master List Report
             </button>
