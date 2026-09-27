@@ -153,8 +153,17 @@ export function exportChallansToExcel(challans, { splitByCompany = false, fileNa
  * "Sale value" has no dedicated field in the app yet, so it is taken as the
  * challan's Grand Total (taxable value + GST). Swap the `saleValue` line
  * below to `it => it.taxable_value` if "before GST" is what's wanted instead.
+ *
+ * Pass `partners` (from partnerService.listPartners(), which already nests
+ * partner_ship_to) to add a second "Parties" tab in the same workbook:
+ *   Sl No | Party Ref Ref | Party Name | GSTN Number-Bill | GSTN Number-Ship |
+ *   PAN | Billing Address | Shipping Address
+ * "Party Ref Ref" is taken as the party's Short Name (there's no other
+ * reference-code field on the partner record) - rename below if you meant
+ * something else. Shipping Address / GSTN Number-Ship use the party's
+ * default ship-to address (or its first one if none is marked default).
  */
-export function exportMasterListReport(challans, { fileName } = {}) {
+export function exportMasterListReport(challans, { fileName, partners } = {}) {
   const maxItems = challans.reduce(
     (max, c) => Math.max(max, c.delivery_challan_items?.length || 0),
     1
@@ -207,6 +216,42 @@ export function exportMasterListReport(challans, { fileName } = {}) {
 
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Master List')
+
+  if (partners?.length) {
+    const billingAddress = (p) =>
+      [p.bill_to_address_line1, p.bill_to_address_line2, p.bill_to_city, p.bill_to_district, p.bill_to_state, p.bill_to_pin]
+        .filter(Boolean)
+        .join(', ')
+
+    const defaultShipTo = (p) => {
+      const list = p.partner_ship_to || []
+      return list.find((s) => s.is_default) || list[0] || {}
+    }
+
+    const shippingAddress = (s) =>
+      [s.address_line1, s.address_line2, s.city, s.district, s.state, s.pin_code].filter(Boolean).join(', ')
+
+    const partyRows = partners.map((p, idx) => {
+      const ship = defaultShipTo(p)
+      return {
+        'Sl No': idx + 1,
+        'Party Ref Ref': p.short_name || '',
+        'Party Name': p.name || '',
+        'GSTN Number-Bill': p.gstin || '',
+        'GSTN Number-Ship': ship.gstin || p.gstin || '',
+        'PAN': p.pan || '',
+        'Billing Address': billingAddress(p),
+        'Shipping Address': shippingAddress(ship)
+      }
+    })
+
+    const partySheet = XLSX.utils.json_to_sheet(partyRows)
+    partySheet['!cols'] = Object.keys(partyRows[0] || {}).map((key) => ({
+      wch: Math.min(Math.max(key.length + 2, 12), 40)
+    }))
+    XLSX.utils.book_append_sheet(workbook, partySheet, 'Parties')
+  }
+
   const dateStr = new Date().toISOString().slice(0, 10)
   XLSX.writeFile(workbook, fileName || `Master_List_Report_${dateStr}.xlsx`)
 }

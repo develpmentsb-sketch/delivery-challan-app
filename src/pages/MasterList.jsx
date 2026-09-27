@@ -9,6 +9,7 @@ import Pagination from '../components/Pagination'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { listChallans, deleteChallan, getChallan } from '../services/challanService'
 import { listLocations } from '../lib/locations'
+import { listPartners } from '../services/partnerService'
 import { formatCurrency } from '../utils/calculations'
 import { exportChallansToExcel, exportChallansToCSV, exportMasterListReport } from '../utils/excelExport'
 import { openChallanPrintView } from '../utils/pdfGenerator'
@@ -74,6 +75,16 @@ export default function MasterList() {
     const dateStr = new Date().toISOString().slice(0, 10)
     const safe = selectedCompanyLabel.replace(/[^A-Za-z0-9]+/g, '_')
     exportChallansToExcel(all, { fileName: `${safe}_Report_${dateStr}.xlsx` })
+  }
+
+  async function handleMasterListReport() {
+    if (!all.length) return toast.info('No records to export')
+    try {
+      const partners = await listPartners({ type: 'All', activeOnly: false })
+      exportMasterListReport(all, { partners })
+    } catch (err) {
+      toast.error(err.message || 'Failed to load parties for the report')
+    }
   }
 
   const paged = useMemo(() => {
@@ -228,7 +239,7 @@ export default function MasterList() {
             <button className="btn-outline" onClick={() => (all.length ? exportChallansToCSV(all) : toast.info('No records to export'))}>
               <FileText size={16} /> Export CSV
             </button>
-            <button className="btn-outline" onClick={() => (all.length ? exportMasterListReport(all) : toast.info('No records to export'))}>
+            <button className="btn-outline" onClick={handleMasterListReport}>
               <FileSpreadsheet size={16} /> Master List Report
             </button>
           </div>
