@@ -10,7 +10,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { listChallans, deleteChallan, getChallan } from '../services/challanService'
 import { listLocations } from '../lib/locations'
 import { formatCurrency } from '../utils/calculations'
-import { exportChallansToExcel, exportChallansToCSV } from '../utils/excelExport'
+import { exportChallansToExcel, exportChallansToCSV, exportMasterListReport } from '../utils/excelExport'
 import { openChallanPrintView } from '../utils/pdfGenerator'
 import { DC_STATUSES, INDIAN_STATES } from '../lib/constants'
 import { useToast } from '../context/ToastContext'
@@ -227,6 +227,9 @@ export default function MasterList() {
             </button>
             <button className="btn-outline" onClick={() => (all.length ? exportChallansToCSV(all) : toast.info('No records to export'))}>
               <FileText size={16} /> Export CSV
+            </button>
+            <button className="btn-outline" onClick={() => (all.length ? exportMasterListReport(all) : toast.info('No records to export'))}>
+              <FileSpreadsheet size={16} /> Master List Report
             </button>
           </div>
         </div>

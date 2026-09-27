@@ -77,6 +77,7 @@ const emptyHeader = () => ({
   reference_name: '',
   kind_attention: '',
   insurance_value: '',
+  prepared_by_name: '',
   dc_status: 'Draft'
 })
 
@@ -171,7 +172,7 @@ function DeliveryChallanForm() {
   const { id } = useParams()
   const isEdit = Boolean(id)
   const navigate = useNavigate()
-  const { session } = useAuth()
+  const { session, profile } = useAuth()
   const toast = useToast()
 
   const [loading, setLoading] = useState(true)
@@ -610,7 +611,15 @@ function DeliveryChallanForm() {
         await updateChallan(id, payload)
       } else {
         await createChallan({
-          header: { ...payload.header, dc_number: String(header.dc_number).trim(), created_by: session?.user?.id },
+          header: {
+            ...payload.header,
+            dc_number: String(header.dc_number).trim(),
+            created_by: session?.user?.id,
+            // Snapshot the preparer's name at creation time (Master List Report's
+            // "Prepared By" column) so it never depends on reading other users'
+            // profile rows later - see supabase/add_prepared_by.sql.
+            prepared_by_name: profile?.full_name || session?.user?.email || ''
+          },
           items: payload.items,
           eway: payload.eway,
           autoNumber: false

@@ -137,6 +137,80 @@ export function exportChallansToExcel(challans, { splitByCompany = false, fileNa
   XLSX.writeFile(workbook, fileName || `Delivery_Challan_Report_${dateStr}.xlsx`)
 }
 
+/**
+ * Master List Report - one row per Delivery Challan (not per item), in the
+ * exact column layout supplied by the client:
+ *   Sl No | Prepared By | From location | DC No | DC Date | DC Type |
+ *   Purpose | Reference Name/Department: | Kind Attention: |
+ *   No of Pacakage: Count | No of Pacakage: Weight | Sale value |
+ *   Bill To | Ship To | Item Desciption 1 | Item UOM 1 | Item Qty 1 |
+ *   Item Desciption 2 | Item UOM 2 | Item Qty 2 | ...
+ *
+ * The item-description/UOM/Qty triplet repeats as many times as the widest
+ * challan in this export needs (so a 5-item DC gets 5 sets of columns, a
+ * 2-item DC just leaves the extra ones blank).
+ *
+ * "Sale value" has no dedicated field in the app yet, so it is taken as the
+ * challan's Grand Total (taxable value + GST). Swap the `saleValue` line
+ * below to `it => it.taxable_value` if "before GST" is what's wanted instead.
+ */
+export function exportMasterListReport(challans, { fileName } = {}) {
+  const maxItems = challans.reduce(
+    (max, c) => Math.max(max, c.delivery_challan_items?.length || 0),
+    1
+  )
+
+  const addressLine = (snap) =>
+    [snap?.name, snap?.city, snap?.state].filter(Boolean).join(', ')
+
+  const rows = challans.map((c, idx) => {
+    const billTo = c.bill_to_snapshot || {}
+    const shipTo = c.ship_to_snapshot || {}
+    const items = c.delivery_challan_items || []
+    const fromLocation =
+      c.dispatch_from_snapshot?.location_name ||
+      c.dispatch_from_snapshot?.company_name ||
+      ''
+
+    const row = {
+      'Sl No': idx + 1,
+      'Prepared By': c.prepared_by_name || '',
+      'From location': fromLocation,
+      'DC No': c.dc_number || '',
+      'DC Date': c.dc_date || '',
+      'DC Type': c.dc_type || '',
+      'Purpose': c.purpose || '',
+      'Reference Name/Department:': c.reference_name || '',
+      'Kind Attention:': c.kind_attention || '',
+      'No of Pacakage:\nCount': c.no_of_packages ?? '',
+      'No of Pacakage:\nWeight': c.weight_kg ?? '',
+      'Sale value': c.grand_total ?? '',
+      'Bill To': addressLine(billTo) || (c.partners?.name ?? ''),
+      'Ship To': addressLine(shipTo)
+    }
+
+    for (let i = 0; i < maxItems; i++) {
+      const it = items[i] || {}
+      const n = i + 1
+      row[`Item  Desciption ${n}`] = it.item_name || it.description || ''
+      row[`Item UOM ${n}`] = it.uom || ''
+      row[`Item Qty ${n}`] = it.quantity ?? ''
+    }
+
+    return row
+  })
+
+  const worksheet = XLSX.utils.json_to_sheet(rows)
+  worksheet['!cols'] = Object.keys(rows[0] || {}).map((key) => ({
+    wch: Math.min(Math.max(key.replace('\n', ' ').length + 2, 10), 32)
+  }))
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Master List')
+  const dateStr = new Date().toISOString().slice(0, 10)
+  XLSX.writeFile(workbook, fileName || `Master_List_Report_${dateStr}.xlsx`)
+}
+
 export function exportChallansToCSV(challans) {
   const rows = challans.map((c) => ({
     'DC Number': c.dc_number,
