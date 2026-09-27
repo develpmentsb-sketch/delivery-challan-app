@@ -57,27 +57,43 @@ function safeSheetName(name, used) {
   return candidate
 }
 
+function companyTotals(list) {
+  return list.reduce(
+    (acc, r) => ({
+      dcs: acc.dcs + 1,
+      qty: acc.qty + Number(r.total_quantity || 0),
+      taxable: acc.taxable + Number(r.taxable_value || 0),
+      gst: acc.gst + Number(r.cgst || 0) + Number(r.sgst || 0) + Number(r.igst || 0),
+      grandTotal: acc.grandTotal + Number(r.grand_total || 0)
+    }),
+    { dcs: 0, qty: 0, taxable: 0, gst: 0, grandTotal: 0 }
+  )
+}
+
+function addChallanSheet(workbook, list, sheetName, usedNames) {
+  const rows = challanRows(list)
+  if (!rows.length) return null
+  const worksheet = XLSX.utils.json_to_sheet(rows)
+  worksheet['!cols'] = Object.keys(rows[0]).map((key) => ({
+    wch: Math.min(Math.max(key.length + 2, 12), 40)
+  }))
+  const finalName = safeSheetName(sheetName, usedNames)
+  XLSX.utils.book_append_sheet(workbook, worksheet, finalName)
+  return finalName
+}
+
 /**
  * Exports the Master List (Delivery Challans) to a formatted .xlsx file.
  * Each row is flattened per delivery-challan-item so every field in the
  * spec (item-level + header-level) is present.
  *
- * With `splitByCompany: true`, each company gets its own sheet in the same
- * workbook (mirrors the "Group by Company" view on screen), sorted A-Z.
+ * With `splitByCompany: true`, a "Master List" index sheet is added first,
+ * listing every company with its totals and a clickable link to that
+ * company's own detail sheet (mirrors the on-screen Group by Company view).
  */
 export function exportChallansToExcel(challans, { splitByCompany = false, fileName } = {}) {
   const workbook = XLSX.utils.book_new()
   const usedNames = new Set()
-
-  function addSheet(list, sheetName) {
-    const rows = challanRows(list)
-    if (!rows.length) return
-    const worksheet = XLSX.utils.json_to_sheet(rows)
-    worksheet['!cols'] = Object.keys(rows[0]).map((key) => ({
-      wch: Math.min(Math.max(key.length + 2, 12), 40)
-    }))
-    XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(sheetName, usedNames))
-  }
 
   if (splitByCompany) {
     const byCompany = new Map()
@@ -86,11 +102,35 @@ export function exportChallansToExcel(challans, { splitByCompany = false, fileNa
       if (!byCompany.has(key)) byCompany.set(key, [])
       byCompany.get(key).push(c)
     })
-    ;[...byCompany.entries()]
+
+    const summary = [...byCompany.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
-      .forEach(([company, list]) => addSheet(list, company))
+      .map(([company, list]) => {
+        const sheetName = addChallanSheet(workbook, list, company, usedNames)
+        return sheetName ? { company, sheetName, totals: companyTotals(list) } : null
+      })
+      .filter(Boolean)
+
+    // Build the "Master List" index sheet: title, then one linked row per company
+    const indexAoa = [
+      ['Master List'],
+      [],
+      ['Company', 'DCs', 'Qty', 'Taxable Value', 'GST', 'Grand Total'],
+      ...summary.map((s) => [s.company, s.totals.dcs, s.totals.qty, s.totals.taxable, s.totals.gst, s.totals.grandTotal])
+    ]
+    const indexSheet = XLSX.utils.aoa_to_sheet(indexAoa)
+    indexSheet['!cols'] = [{ wch: 42 }, { wch: 8 }, { wch: 8 }, { wch: 16 }, { wch: 14 }, { wch: 16 }]
+    summary.forEach((s, i) => {
+      const cellRef = XLSX.utils.encode_cell({ r: 3 + i, c: 0 })
+      if (indexSheet[cellRef]) {
+        indexSheet[cellRef].l = { Target: `#'${s.sheetName}'!A1`, Tooltip: `Go to ${s.company}` }
+      }
+    })
+    XLSX.utils.book_append_sheet(workbook, indexSheet, 'Master List')
+    // Move the index sheet to the front so it's the first tab shown
+    workbook.SheetNames.unshift(workbook.SheetNames.pop())
   } else {
-    addSheet(challans, 'Delivery Challans')
+    addChallanSheet(workbook, challans, 'Delivery Challans', usedNames)
   }
 
   const dateStr = new Date().toISOString().slice(0, 10)
