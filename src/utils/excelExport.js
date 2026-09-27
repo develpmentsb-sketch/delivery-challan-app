@@ -169,8 +169,10 @@ export function exportMasterListReport(challans, { fileName, partners } = {}) {
     1
   )
 
-  const addressLine = (snap) =>
-    [snap?.name, snap?.city, snap?.state].filter(Boolean).join(', ')
+  // "Bill To" / "Ship To" show just the party name here - same as the
+  // "Party Name" column on the Parties tab - not the full name+city+state
+  // line that used to be appended.
+  const partyLabel = (snap) => snap?.name || ''
 
   const rows = challans.map((c, idx) => {
     const billTo = c.bill_to_snapshot || {}
@@ -194,8 +196,8 @@ export function exportMasterListReport(challans, { fileName, partners } = {}) {
       'No of Pacakage:\nCount': c.no_of_packages ?? '',
       'No of Pacakage:\nWeight': c.weight_kg ?? '',
       'Sale value': c.grand_total ?? '',
-      'Bill To': addressLine(billTo) || (c.partners?.name ?? ''),
-      'Ship To': addressLine(shipTo)
+      'Bill To': partyLabel(billTo) || (c.partners?.name ?? ''),
+      'Ship To': partyLabel(shipTo)
     }
 
     for (let i = 0; i < maxItems; i++) {
