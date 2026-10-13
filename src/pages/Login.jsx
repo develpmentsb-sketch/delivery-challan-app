@@ -47,7 +47,7 @@ export default function Login() {
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-navy-900 p-4">
+    <div className="relative min-h-screen flex items-center overflow-hidden bg-navy-900 px-4 md:px-[8%] py-4">
       <SecurityBackdrop />
       <div className="relative z-10 w-full max-w-3xl rounded-[2rem] bg-cream-100 shadow-2xl overflow-hidden flex flex-col md:flex-row">
         {/* Left: welcome / brand panel */}
@@ -173,9 +173,9 @@ export default function Login() {
 function SecurityBackdrop() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_75%_50%,_rgba(201,138,44,0.10)_0%,_transparent_55%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_75%_50%,_rgba(59,140,240,0.18)_0%,_transparent_55%)]" />
       <svg
-        className="absolute top-1/2 right-[8%] -translate-y-1/2 w-[32rem] h-[32rem] text-gold-400/20 hidden md:block"
+        className="absolute top-1/2 right-[8%] -translate-y-1/2 w-[32rem] h-[32rem] text-[#3B8CF0]/30 hidden md:block"
         viewBox="0 0 400 400"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
@@ -193,8 +193,8 @@ function SecurityBackdrop() {
         <rect x="160" y="160" width="80" height="80" stroke="currentColor" strokeWidth="1" transform="rotate(-10 200 200)" />
       </svg>
       <div className="absolute top-1/2 right-[8%] -translate-y-1/2 w-24 h-24 hidden md:flex items-center justify-center">
-        <div className="absolute w-24 h-24 rounded-full bg-gold-400/20 blur-2xl" />
-        <Lock size={34} className="relative text-gold-400/70" strokeWidth={1.5} />
+        <div className="absolute w-24 h-24 rounded-full bg-[#3B8CF0]/30 blur-2xl" />
+        <Lock size={34} className="relative text-[#6FB1FF]" strokeWidth={1.5} />
       </div>
       <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-navy-500/30 blur-3xl" />
       <div className="absolute -bottom-32 -left-10 w-80 h-80 rounded-full bg-navy-600/30 blur-3xl" />
