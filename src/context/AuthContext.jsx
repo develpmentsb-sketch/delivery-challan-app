@@ -40,6 +40,10 @@ export function AuthProvider({ children }) {
   const signUp = (email, password) => supabase.auth.signUp({ email, password })
   const signOut = () => supabase.auth.signOut()
   const changePassword = (newPassword) => supabase.auth.updateUser({ password: newPassword })
+  const signInWithOAuth = (provider) =>
+    supabase.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.origin + import.meta.env.BASE_URL } })
+  const resetPassword = (email) =>
+    supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + import.meta.env.BASE_URL })
 
   const value = useMemo(() => {
     const profileReady = !userId || profileState.uid === userId
@@ -55,7 +59,7 @@ export function AuthProvider({ children }) {
       isAdmin: role === 'admin',
       can: (permission) => canRole(role, permission),
       refreshProfile: loadProfile,
-      signIn, signUp, signOut, changePassword
+      signIn, signUp, signOut, changePassword, signInWithOAuth, resetPassword
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, authLoading, profileState, userId, loadProfile])
