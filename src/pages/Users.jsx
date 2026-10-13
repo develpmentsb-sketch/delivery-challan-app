@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+﻿import React, { useCallback, useEffect, useState } from 'react'
 import Header from '../components/Header'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { supabase } from '../lib/supabase'
@@ -105,7 +105,7 @@ export default function Users() {
               <tr key={perm}>
                 <td>{label}</td>
                 {Object.values(ROLES).map((ro) => (
-                  <td key={ro} className="text-center">{PERMISSIONS[perm].includes(ro) ? '✓' : '—'}</td>
+                  <td key={ro} className="text-center">{PERMISSIONS[perm].includes(ro) ? 'âœ“' : 'â€”'}</td>
                 ))}
               </tr>
             ))}
