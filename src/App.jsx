@@ -1,4 +1,4 @@
-﻿import React from 'react'
+import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
@@ -12,6 +12,7 @@ import ItemMaster from './pages/ItemMaster'
 import PartnerMaster from './pages/PartnerMaster'
 import Settings from './pages/Settings'
 import BackupRestorePage from './pages/BackupRestore'
+import Users from './pages/Users'
 
 // `perm` (optional) = permission required to open the page, see src/lib/permissions.js
 function ProtectedRoute({ children, perm }) {
@@ -47,6 +48,7 @@ export default function App() {
       <Route path="/items" element={<ProtectedRoute perm="items.view"><ItemMaster /></ProtectedRoute>} />
       <Route path="/partners" element={<ProtectedRoute perm="partners.view"><PartnerMaster /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute perm="settings.view"><Settings /></ProtectedRoute>} />
+      <Route path="/users" element={<ProtectedRoute perm="users.manage"><Users /></ProtectedRoute>} />
       <Route path="/backup-restore" element={<ProtectedRoute perm="backup.use"><BackupRestorePage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
