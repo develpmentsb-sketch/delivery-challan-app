@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import Header from '../components/Header'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { supabase } from '../lib/supabase'
@@ -43,6 +43,16 @@ export default function Users() {
     toast.success(`${row.email} updated`)
   }
 
+  async function remove(row) {
+    if (!window.confirm(`Delete ${row.email}? This permanently removes their login and cannot be undone.`)) return
+    setSavingId(row.id)
+    const { error } = await supabase.rpc('admin_delete_user', { target_id: row.id })
+    setSavingId(null)
+    if (error) return toast.error(error.message || 'Delete failed')
+    setRows((rs) => rs.filter((r) => r.id !== row.id))
+    toast.success(`${row.email} deleted`)
+  }
+
   return (
     <div>
       <Header title="User Management" subtitle="Approve sign-ups, assign roles, deactivate accounts" />
@@ -54,7 +64,7 @@ export default function Users() {
           <div className="overflow-x-auto">
             <table className="table-base">
               <thead>
-                <tr><th>Email</th><th>Name</th><th>Role</th><th>Status</th><th>Joined</th></tr>
+                <tr><th>Email</th><th>Name</th><th>Role</th><th>Status</th><th>Joined</th><th>Delete</th></tr>
               </thead>
               <tbody>
                 {rows.map((r) => {
@@ -85,6 +95,16 @@ export default function Users() {
                         </label>
                       </td>
                       <td className="text-xs">{new Date(r.created_at).toLocaleDateString('en-IN')}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="text-xs font-medium text-red-600 hover:underline disabled:opacity-40 disabled:no-underline"
+                          disabled={isSelf || savingId === r.id}
+                          onClick={() => remove(r)}
+                        >
+                          Delete
+                        </button>
+                      </td>
                     </tr>
                   )
                 })}
@@ -105,7 +125,7 @@ export default function Users() {
               <tr key={perm}>
                 <td>{label}</td>
                 {Object.values(ROLES).map((ro) => (
-                  <td key={ro} className="text-center">{PERMISSIONS[perm].includes(ro) ? 'âœ“' : 'â€”'}</td>
+                  <td key={ro} className="text-center">{PERMISSIONS[perm].includes(ro) ? '\u2713' : '\u2014'}</td>
                 ))}
               </tr>
             ))}
