@@ -47,8 +47,9 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-navy-700 via-navy-500 to-navy-300 p-4">
-      <div className="relative w-full max-w-3xl rounded-[2rem] bg-cream-100 shadow-2xl overflow-hidden flex flex-col md:flex-row">
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-navy-900 p-4">
+      <SecurityBackdrop />
+      <div className="relative z-10 w-full max-w-3xl rounded-[2rem] bg-cream-100 shadow-2xl overflow-hidden flex flex-col md:flex-row">
         {/* Left: welcome / brand panel */}
         <div className="relative w-full md:w-[42%] bg-navy overflow-hidden px-8 py-10 flex flex-col justify-center min-h-[220px] md:min-h-[460px]">
           <div className="pointer-events-none absolute inset-0">
@@ -163,6 +164,40 @@ export default function Login() {
           </p>
         </div>
       </div>
+    </div>
+  )
+}
+
+// Dark navy "security tech" backdrop: concentric circuit rings + a glowing
+// shield-lock, echoing a security/compliance visual without using a stock photo.
+function SecurityBackdrop() {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_75%_50%,_rgba(201,138,44,0.10)_0%,_transparent_55%)]" />
+      <svg
+        className="absolute top-1/2 right-[8%] -translate-y-1/2 w-[32rem] h-[32rem] text-gold-400/20 hidden md:block"
+        viewBox="0 0 400 400"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        {[60, 100, 140, 180].map((r) => (
+          <circle key={r} cx="200" cy="200" r={r} stroke="currentColor" strokeWidth="1" />
+        ))}
+        {Array.from({ length: 12 }).map((_, i) => {
+          const angle = (i * 30 * Math.PI) / 180
+          const x2 = 200 + 190 * Math.cos(angle)
+          const y2 = 200 + 190 * Math.sin(angle)
+          return <line key={i} x1="200" y1="200" x2={x2} y2={y2} stroke="currentColor" strokeWidth="0.5" opacity="0.4" />
+        })}
+        <rect x="140" y="140" width="120" height="120" stroke="currentColor" strokeWidth="1" transform="rotate(15 200 200)" />
+        <rect x="160" y="160" width="80" height="80" stroke="currentColor" strokeWidth="1" transform="rotate(-10 200 200)" />
+      </svg>
+      <div className="absolute top-1/2 right-[8%] -translate-y-1/2 w-24 h-24 hidden md:flex items-center justify-center">
+        <div className="absolute w-24 h-24 rounded-full bg-gold-400/20 blur-2xl" />
+        <Lock size={34} className="relative text-gold-400/70" strokeWidth={1.5} />
+      </div>
+      <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-navy-500/30 blur-3xl" />
+      <div className="absolute -bottom-32 -left-10 w-80 h-80 rounded-full bg-navy-600/30 blur-3xl" />
     </div>
   )
 }
