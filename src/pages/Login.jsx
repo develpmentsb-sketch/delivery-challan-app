@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Mail, Lock, Loader2 } from 'lucide-react'
+import { Mail, Lock, Loader2, Shield } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 
@@ -173,29 +173,46 @@ export default function Login() {
 function SecurityBackdrop() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_75%_50%,_rgba(59,140,240,0.18)_0%,_transparent_55%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_75%_50%,_rgba(59,140,240,0.22)_0%,_transparent_60%)]" />
+
       <svg
-        className="absolute top-1/2 right-[8%] -translate-y-1/2 w-[32rem] h-[32rem] text-[#3B8CF0]/30 hidden md:block"
+        className="absolute top-1/2 right-[8%] -translate-y-1/2 w-[34rem] h-[34rem] text-[#3B8CF0]/60 hidden md:block"
         viewBox="0 0 400 400"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
-        {[60, 100, 140, 180].map((r) => (
-          <circle key={r} cx="200" cy="200" r={r} stroke="currentColor" strokeWidth="1" />
+        {[50, 85, 120, 155, 190].map((r) => (
+          <circle key={r} cx="200" cy="200" r={r} stroke="currentColor" strokeWidth="1" opacity={r === 190 ? 0.9 : 0.5} />
         ))}
-        {Array.from({ length: 12 }).map((_, i) => {
-          const angle = (i * 30 * Math.PI) / 180
-          const x2 = 200 + 190 * Math.cos(angle)
-          const y2 = 200 + 190 * Math.sin(angle)
-          return <line key={i} x1="200" y1="200" x2={x2} y2={y2} stroke="currentColor" strokeWidth="0.5" opacity="0.4" />
+        {Array.from({ length: 16 }).map((_, i) => {
+          const angle = (i * 22.5 * Math.PI) / 180
+          const x1 = 200 + 95 * Math.cos(angle)
+          const y1 = 200 + 95 * Math.sin(angle)
+          const x2 = 200 + 195 * Math.cos(angle)
+          const y2 = 200 + 195 * Math.sin(angle)
+          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="currentColor" strokeWidth="0.75" opacity="0.5" />
         })}
-        <rect x="140" y="140" width="120" height="120" stroke="currentColor" strokeWidth="1" transform="rotate(15 200 200)" />
-        <rect x="160" y="160" width="80" height="80" stroke="currentColor" strokeWidth="1" transform="rotate(-10 200 200)" />
+        <rect x="130" y="130" width="140" height="140" stroke="currentColor" strokeWidth="1.25" opacity="0.7" transform="rotate(15 200 200)" />
+        <rect x="150" y="150" width="100" height="100" stroke="currentColor" strokeWidth="1.25" opacity="0.8" transform="rotate(-12 200 200)" />
+        {/* small tick marks around the outer ring, radar-style */}
+        {Array.from({ length: 48 }).map((_, i) => {
+          const angle = (i * 7.5 * Math.PI) / 180
+          const x1 = 200 + 188 * Math.cos(angle)
+          const y1 = 200 + 188 * Math.sin(angle)
+          const x2 = 200 + 196 * Math.cos(angle)
+          const y2 = 200 + 196 * Math.sin(angle)
+          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="currentColor" strokeWidth="1" opacity="0.6" />
+        })}
       </svg>
-      <div className="absolute top-1/2 right-[8%] -translate-y-1/2 w-24 h-24 hidden md:flex items-center justify-center">
-        <div className="absolute w-24 h-24 rounded-full bg-[#3B8CF0]/30 blur-2xl" />
-        <Lock size={34} className="relative text-[#6FB1FF]" strokeWidth={1.5} />
+
+      {/* glowing shield + lock, centered on the rings */}
+      <div className="absolute top-1/2 right-[8%] -translate-y-1/2 w-28 h-28 hidden md:flex items-center justify-center">
+        <div className="absolute w-40 h-40 rounded-full bg-[#5AA7FF]/40 blur-3xl" />
+        <div className="absolute w-16 h-16 rounded-full bg-white/70 blur-xl" />
+        <Shield size={56} className="relative text-[#BFE0FF] drop-shadow-[0_0_18px_rgba(140,200,255,0.9)]" strokeWidth={1.25} />
+        <Lock size={22} className="absolute text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]" strokeWidth={2} />
       </div>
+
       <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-navy-500/30 blur-3xl" />
       <div className="absolute -bottom-32 -left-10 w-80 h-80 rounded-full bg-navy-600/30 blur-3xl" />
     </div>
