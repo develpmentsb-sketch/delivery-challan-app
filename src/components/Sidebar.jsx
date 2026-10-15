@@ -23,8 +23,10 @@ const BOTTOM_ITEMS = [
 ]
 
 const linkClass = ({ isActive }) =>
-  `flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
-    isActive ? 'bg-gold text-navy-900' : 'text-cream-200/90 hover:bg-navy-600'
+  `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+    isActive
+      ? 'bg-gradient-to-r from-gold-400 to-gold text-navy-900 shadow-lg shadow-black/25'
+      : 'text-white/85 hover:bg-white/10 hover:text-white'
   }`
 
 export default function Sidebar() {
@@ -40,18 +42,18 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`bg-navy text-cream-200 flex flex-col shrink-0 transition-all duration-200 ${
+      className={`flex flex-col shrink-0 text-white transition-all duration-200 ${
         collapsed ? 'w-[68px]' : 'w-64'
-      } h-screen sticky top-0`}
+      } m-3 h-[calc(100vh-1.5rem)] sticky top-3 rounded-2xl border border-white/20 shadow-2xl backdrop-blur-xl bg-gradient-to-b from-navy/80 to-navy-800/85`}
     >
-      <div className="flex items-center gap-2 px-4 h-16 border-b border-navy-600/60">
-        <div className="w-8 h-8 rounded-md bg-gold flex items-center justify-center text-navy-900 shrink-0">
+      <div className="flex items-center gap-2 px-4 h-16 border-b border-white/15">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gold-400 to-gold flex items-center justify-center text-navy-900 shrink-0 shadow-md shadow-black/30">
           <Truck size={18} />
         </div>
         {!collapsed && (
           <div className="leading-tight overflow-hidden">
-            <p className="font-display font-bold text-sm text-cream-100 whitespace-nowrap">DC &amp; E-Way Bill</p>
-            <p className="text-[11px] text-navy-200 whitespace-nowrap">
+            <p className="font-display font-bold text-sm text-white whitespace-nowrap">DC &amp; E-Way Bill</p>
+            <p className="text-[11px] text-white/60 whitespace-nowrap">
               {role ? ROLE_LABELS[role] : 'Dashboard'}
             </p>
           </div>
@@ -62,11 +64,11 @@ export default function Sidebar() {
         {NAV_ITEMS.filter((i) => can(i.perm)).map(renderItem)}
       </nav>
 
-      <div className="px-2 pb-3 space-y-1 border-t border-navy-600/60 pt-3">
+      <div className="px-2 pb-3 space-y-1 border-t border-white/15 pt-3">
         {BOTTOM_ITEMS.filter((i) => can(i.perm)).map(renderItem)}
         <button
           onClick={signOut}
-          className="w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-cream-200/90 hover:bg-brick-600 hover:text-cream-100"
+          className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white/85 transition-all duration-200 hover:bg-brick/80 hover:text-white"
         >
           <LogOut size={18} className="shrink-0" />
           {!collapsed && <span className="truncate">Logout{user?.email ? ` (${user.email})` : ''}</span>}
@@ -74,7 +76,7 @@ export default function Sidebar() {
 
         <button
           onClick={() => setCollapsed((c) => !c)}
-          className="w-full flex items-center justify-center gap-2 rounded-md px-3 py-2 text-xs text-navy-300 hover:bg-navy-600 hover:text-cream-100 mt-1"
+          className="w-full flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs text-white/60 hover:bg-white/10 hover:text-white mt-1"
         >
           {collapsed ? <ChevronRight size={16} /> : <><ChevronLeft size={16} /> Collapse</>}
         </button>
