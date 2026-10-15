@@ -96,8 +96,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Number cards: vertical layout (icon on top, number and label underneath) */}
-      <div className="relative z-10 -mt-12 grid grid-cols-2 gap-4 px-3 md:grid-cols-3 lg:px-6 xl:grid-cols-6">
+      {/* Number cards: one card per row, stacked vertically */}
+      <div className="relative z-10 -mt-12 grid grid-cols-1 gap-4 px-3 lg:px-6">
         {cards.map((c) => (
           <div
             key={c.label}
