@@ -1,24 +1,26 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  FileText, CalendarClock, CalendarRange, FileCheck2, FileClock, FileX2, Plus
+  FileText, CalendarClock, CalendarRange, FileCheck2, FileClock, FileX2, Plus,
+  Truck, ArrowRight, Package, Users, ListOrdered
 } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import EmptyState from '../components/EmptyState'
 import StatusBadge from '../components/StatusBadge'
 import { listRecentChallans, getDashboardStats } from '../services/challanService'
 import { formatCurrency } from '../utils/calculations'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
-
-const PIE_COLORS = ['#1B2A4A', '#5D73AB', '#C98A2C', '#2F6846', '#B23A34']
+import heroImg from '../assets/bg-blur.jpg'
 
 const TOOLTIP_STYLE = {
-  borderRadius: 8,
-  border: '1px solid #D6DCEA',
-  boxShadow: 'none',
+  borderRadius: 12,
+  border: 'none',
+  boxShadow: '0 8px 24px rgba(15,26,53,0.15)',
   fontSize: 12
 }
+
+const STATUS_BAR_COLORS = ['bg-teal-500', 'bg-sky-500', 'bg-amber-500', 'bg-emerald-500', 'bg-rose-500']
 
 // Keeps the last dashboard data (per user) so coming back to this page is instant;
 // fresh data is still fetched every time and replaces it as soon as it arrives.
@@ -33,7 +35,7 @@ function greetingFor(date) {
 
 export default function Dashboard() {
   const toast = useToast()
-  const { user, profile } = useAuth()
+  const { user, profile, can } = useAuth()
   const uid = user?.id
   const cached = dashboardCache && dashboardCache.uid === uid ? dashboardCache : null
   const [stats, setStats] = useState(cached?.stats || null)
@@ -70,10 +72,11 @@ export default function Dashboard() {
     return Object.entries(map).map(([month, count]) => ({ month, count })).sort((a, b) => a.month.localeCompare(b.month))
   }, [recent])
 
-  const statusChart = useMemo(() => {
+  const statusList = useMemo(() => {
     const map = {}
     recent.forEach((c) => { map[c.dc_status] = (map[c.dc_status] || 0) + 1 })
-    return Object.entries(map).map(([name, value]) => ({ name, value }))
+    const total = recent.length || 1
+    return Object.entries(map).map(([name, value]) => ({ name, value, pct: Math.round((value / total) * 100) }))
   }, [recent])
 
   const now = new Date()
@@ -82,108 +85,169 @@ export default function Dashboard() {
   const firstName = rawName ? rawName.split(/[\s._-]+/)[0].replace(/^./, (ch) => ch.toUpperCase()) : ''
 
   const cards = [
-    { label: 'Total Delivery Challans', value: stats ? stats.total : '–', icon: FileText },
-    { label: "Today's Challans", value: stats ? stats.today : '–', icon: CalendarClock },
-    { label: "This Month's Challans", value: stats ? stats.thisMonth : '–', icon: CalendarRange },
-    { label: 'E-Way Bills Generated', value: stats ? stats.ewayGenerated : '–', icon: FileCheck2 },
-    { label: 'Pending E-Way Bills', value: stats ? stats.ewayPending : '–', icon: FileClock },
-    { label: 'Cancelled Challans', value: stats ? stats.cancelled : '–', icon: FileX2 }
+    { label: 'Total Challans', value: stats ? stats.total : '–', icon: FileText, tone: 'bg-sky-50 text-sky-600' },
+    { label: "Today's Challans", value: stats ? stats.today : '–', icon: CalendarClock, tone: 'bg-cyan-50 text-cyan-600' },
+    { label: "This Month's", value: stats ? stats.thisMonth : '–', icon: CalendarRange, tone: 'bg-teal-50 text-teal-600' },
+    { label: 'E-Way Generated', value: stats ? stats.ewayGenerated : '–', icon: FileCheck2, tone: 'bg-emerald-50 text-emerald-600' },
+    { label: 'E-Way Pending', value: stats ? stats.ewayPending : '–', icon: FileClock, tone: 'bg-amber-50 text-amber-600' },
+    { label: 'Cancelled', value: stats ? stats.cancelled : '–', icon: FileX2, tone: 'bg-rose-50 text-rose-600' }
   ]
 
+  const quickActions = [
+    { to: '/challan/new', label: 'Create Delivery Challan', icon: Plus, perm: 'challan.create' },
+    { to: '/master-list', label: 'Open Master List', icon: ListOrdered, perm: 'challan.view' },
+    { to: '/items', label: 'Manage Items', icon: Package, perm: 'items.view' },
+    { to: '/partners', label: 'Manage Vendors', icon: Users, perm: 'partners.view' }
+  ].filter((a) => !can || can(a.perm))
+
+  const ewayTotal = stats ? (Number(stats.ewayGenerated) || 0) + (Number(stats.ewayPending) || 0) : 0
+  const ewayGenPct = ewayTotal ? Math.round(((Number(stats.ewayGenerated) || 0) / ewayTotal) * 100) : 0
+
   return (
-    <div className="rounded-2xl border border-navy-100 bg-white p-5 lg:p-7">
-      {/* Welcome banner */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-navy-100 bg-navy-50/50 px-5 py-4">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-navy-400">Dashboard</p>
-          <h1 className="mt-1 text-xl font-semibold text-navy">
-            {greetingFor(now)}{firstName ? `, ${firstName}` : ''}
-          </h1>
-          <p className="mt-0.5 text-sm text-navy-400">
-            {dateText}
-            {stats && stats.ewayPending > 0 && (
-              <> &middot; {stats.ewayPending} e-way bill{stats.ewayPending === 1 ? '' : 's'} pending</>
+    <div>
+      {/* Hero */}
+      <div className="relative overflow-hidden rounded-3xl px-7 pb-20 pt-8 text-white lg:px-10 lg:pb-24 lg:pt-10">
+        <img src={heroImg} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-r from-sky-900/90 via-cyan-800/80 to-teal-700/70" />
+        <Truck size={200} className="pointer-events-none absolute -bottom-8 -right-6 text-white/10" />
+        <div className="relative flex flex-wrap items-end justify-between gap-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-white/70">{dateText}</p>
+            <h1 className="mt-2 text-3xl font-bold text-white">
+              {greetingFor(now)}{firstName ? `, ${firstName}` : ''}
+            </h1>
+            <p className="mt-1 text-sm text-white/80">
+              {stats
+                ? stats.ewayPending > 0
+                  ? `You have ${stats.ewayPending} pending e-way bill${stats.ewayPending === 1 ? '' : 's'} to generate.`
+                  : 'All caught up. No pending e-way bills.'
+                : 'Loading your numbers...'}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(!can || can('challan.create')) && (
+              <Link to="/challan/new" className="btn bg-white text-sky-900 hover:bg-white/90">
+                <Plus size={16} /> Create Delivery Challan
+              </Link>
             )}
-          </p>
+            {(!can || can('challan.view')) && (
+              <Link to="/master-list" className="btn border border-white/40 text-white hover:bg-white/10">
+                Master List <ArrowRight size={16} />
+              </Link>
+            )}
+          </div>
         </div>
-        <Link to="/challan/new" className="btn-primary">
-          <Plus size={16} /> Create Delivery Challan
-        </Link>
       </div>
 
-      {/* Stat tiles */}
-      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      {/* KPI cards overlapping the hero */}
+      <div className="relative z-10 -mt-12 grid grid-cols-2 gap-4 px-3 md:grid-cols-3 lg:px-6 xl:grid-cols-6">
         {cards.map((c) => (
-          <div key={c.label} className="rounded-xl border border-navy-100 bg-white p-4 transition-colors hover:border-navy-300">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-xs leading-snug text-navy-400">{c.label}</p>
-              <c.icon size={16} className="mt-0.5 shrink-0 text-navy-300" />
+          <div key={c.label} className="rounded-2xl border border-white bg-white p-4 shadow-lg shadow-slate-900/5 transition-transform duration-200 hover:-translate-y-0.5">
+            <div className={`flex h-10 w-10 items-center justify-center rounded-full ${c.tone}`}>
+              <c.icon size={18} />
             </div>
-            <p className={`mt-3 text-2xl font-semibold text-navy ${stats ? '' : 'animate-pulse opacity-40'}`}>{c.value}</p>
+            <p className={`mt-3 text-3xl font-bold text-navy ${stats ? '' : 'animate-pulse opacity-40'}`}>{c.value}</p>
+            <p className="mt-0.5 text-xs text-navy-400">{c.label}</p>
           </div>
         ))}
       </div>
 
-      {/* Charts */}
-      <div className="mb-6 grid gap-4 lg:grid-cols-3">
-        <div className="rounded-xl border border-navy-100 bg-white p-5 lg:col-span-2">
-          <h3 className="mb-4 text-sm font-semibold text-navy">Delivery Challans by Month</h3>
+      {/* Chart + side panels */}
+      <div className="mt-6 grid gap-6 lg:grid-cols-3">
+        <div className="card p-6 lg:col-span-2">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-navy">Challans by month</h3>
+            <span className="text-xs text-navy-400">Latest 8 challans</span>
+          </div>
           {recentLoading ? (
-            <div className="h-[240px] animate-pulse rounded-lg bg-navy-50/70" />
+            <div className="h-[250px] animate-pulse rounded-xl bg-navy-50/70" />
           ) : monthlyChart.length === 0 ? (
             <EmptyState title="No data yet" description="Create a few delivery challans to see monthly trends." />
           ) : (
-            <ResponsiveContainer width="100%" height={240}>
+            <ResponsiveContainer width="100%" height={250}>
               <BarChart data={monthlyChart}>
-                <CartesianGrid stroke="#E5E9F2" vertical={false} />
+                <defs>
+                  <linearGradient id="tealBar" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#2DD4BF" />
+                    <stop offset="100%" stopColor="#0E7490" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="4 4" stroke="#E2E8F0" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: 'rgba(27,42,74,0.04)' }} />
-                <Bar dataKey="count" fill="#1B2A4A" radius={[4, 4, 0, 0]} maxBarSize={48} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: 'rgba(14,116,144,0.06)' }} />
+                <Bar dataKey="count" fill="url(#tealBar)" radius={[10, 10, 0, 0]} maxBarSize={64} />
               </BarChart>
             </ResponsiveContainer>
           )}
         </div>
 
-        <div className="rounded-xl border border-navy-100 bg-white p-5">
-          <h3 className="mb-4 text-sm font-semibold text-navy">DC Status Split</h3>
-          {recentLoading ? (
-            <div className="h-[240px] animate-pulse rounded-lg bg-navy-50/70" />
-          ) : statusChart.length === 0 ? (
-            <EmptyState title="No data yet" />
-          ) : (
-            <ResponsiveContainer width="100%" height={240}>
-              <PieChart>
-                <Pie
-                  data={statusChart}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={52}
-                  outerRadius={80}
-                  paddingAngle={2}
-                  stroke="none"
+        <div className="space-y-6">
+          <div className="card p-6">
+            <h3 className="mb-3 text-sm font-semibold text-navy">Quick actions</h3>
+            <div className="space-y-2">
+              {quickActions.map((a) => (
+                <Link
+                  key={a.to}
+                  to={a.to}
+                  className="group flex items-center justify-between rounded-xl border border-navy-100 bg-white px-3 py-2.5 text-sm font-medium text-navy transition-colors hover:border-teal-300 hover:bg-teal-50/60"
                 >
-                  {statusChart.map((_, i) => (
-                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={TOOLTIP_STYLE} />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
+                  <span className="flex items-center gap-3">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
+                      <a.icon size={15} />
+                    </span>
+                    {a.label}
+                  </span>
+                  <ArrowRight size={15} className="text-navy-300 transition-transform group-hover:translate-x-0.5" />
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <h3 className="mb-3 text-sm font-semibold text-navy">E-way bill progress</h3>
+            <div className="h-2.5 w-full overflow-hidden rounded-full bg-amber-100">
+              <div className="h-full rounded-full bg-gradient-to-r from-teal-400 to-emerald-500 transition-all" style={{ width: `${ewayGenPct}%` }} />
+            </div>
+            <p className="mt-2 text-xs text-navy-400">
+              {stats ? `${stats.ewayGenerated} generated, ${stats.ewayPending} pending` : 'Loading...'}
+            </p>
+
+            <h3 className="mb-2 mt-5 text-sm font-semibold text-navy">Challan status</h3>
+            {recentLoading ? (
+              <div className="h-16 animate-pulse rounded-xl bg-navy-50/70" />
+            ) : statusList.length === 0 ? (
+              <p className="text-xs text-navy-400">No data yet.</p>
+            ) : (
+              <ul className="space-y-2.5">
+                {statusList.map((s, i) => (
+                  <li key={s.name}>
+                    <div className="mb-1 flex justify-between text-xs">
+                      <span className="font-medium text-navy">{s.name}</span>
+                      <span className="text-navy-400">{s.value}</span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-navy-50">
+                      <div className={`h-full rounded-full ${STATUS_BAR_COLORS[i % STATUS_BAR_COLORS.length]}`} style={{ width: `${s.pct}%` }} />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Recent challans */}
-      <div className="rounded-xl border border-navy-100 bg-white">
-        <div className="flex items-center justify-between border-b border-navy-100 px-5 py-4">
-          <h3 className="text-sm font-semibold text-navy">Recent Delivery Challans</h3>
-          <Link to="/master-list" className="text-xs font-semibold text-navy-500 hover:text-navy hover:underline">View all</Link>
+      {/* Recent challans as a list */}
+      <div className="card mt-6">
+        <div className="flex items-center justify-between px-6 py-4">
+          <h3 className="text-sm font-semibold text-navy">Recent delivery challans</h3>
+          <Link to="/master-list" className="flex items-center gap-1 text-xs font-semibold text-teal-700 hover:underline">
+            View all <ArrowRight size={13} />
+          </Link>
         </div>
         {recentLoading ? (
-          <div className="space-y-3 p-5">
-            {[0, 1, 2, 3].map((i) => <div key={i} className="h-8 animate-pulse rounded-lg bg-navy-50/70" />)}
+          <div className="space-y-3 px-6 pb-6">
+            {[0, 1, 2, 3].map((i) => <div key={i} className="h-12 animate-pulse rounded-xl bg-navy-50/70" />)}
           </div>
         ) : recent.length === 0 ? (
           <EmptyState
@@ -192,31 +256,29 @@ export default function Dashboard() {
             action={<Link to="/challan/new" className="btn-primary mt-2"><Plus size={16} /> Create Delivery Challan</Link>}
           />
         ) : (
-          <div className="overflow-x-auto rounded-b-xl">
-            <table className="table-base table-flat">
-              <thead>
-                <tr>
-                  <th>DC No.</th><th>Date</th><th>Vendor</th><th className="text-right">Grand Total</th>
-                  <th>Vehicle</th><th>E-Way Bill</th><th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recent.map((c) => (
-                  <tr key={c.id}>
-                    <td className="font-medium text-navy">
-                      <Link to={`/challan/${c.id}/edit`} className="hover:underline">{c.dc_number}</Link>
-                    </td>
-                    <td>{c.dc_date}</td>
-                    <td>{c.partners?.name || c.bill_to_snapshot?.name || '-'}</td>
-                    <td className="text-right">{formatCurrency(c.grand_total)}</td>
-                    <td>{c.vehicle_number || '-'}</td>
-                    <td><StatusBadge status={c.eway_bills?.[0]?.status || 'Not Generated'} /></td>
-                    <td><StatusBadge status={c.dc_status} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ul className="divide-y divide-navy-100/70 border-t border-navy-100/70">
+            {recent.map((c) => (
+              <li key={c.id} className="flex flex-wrap items-center gap-x-6 gap-y-2 px-6 py-3.5 transition-colors hover:bg-sky-50/40">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+                  <FileText size={17} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <Link to={`/challan/${c.id}/edit`} className="font-semibold text-navy hover:underline">{c.dc_number}</Link>
+                  <p className="truncate text-xs text-navy-400">
+                    {c.partners?.name || c.bill_to_snapshot?.name || '-'} &middot; {c.dc_date}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-navy">{formatCurrency(c.grand_total)}</p>
+                  <p className="text-xs text-navy-400">{c.vehicle_number || 'No vehicle'}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={c.eway_bills?.[0]?.status || 'Not Generated'} />
+                  <StatusBadge status={c.dc_status} />
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </div>
