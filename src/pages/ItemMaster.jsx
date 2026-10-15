@@ -16,12 +16,80 @@ const PAGE_SIZE = 10
 const emptyItem = () => ({
   item_code: '', item_name: '', description: '', hsn: '', uom: 'NOS', gst_rate: 0,
   unit_price: 0, opening_quantity: 0, current_quantity: 0, reorder_level: 0, active: true,
-  category: '', brand: '', tax_inclusive: false
+  category: '', brand: '', tax_inclusive: false,
+  foreign_name: '', item_type: 'Item', barcode: '',
+  is_inventory_item: true, is_sales_item: true, is_purchase_item: true,
+  purchase_price: 0, preferred_vendor: '', lead_time_days: '',
+  mrp: 0, discount_percent: 0,
+  min_stock: 0, max_stock: 0, valuation_method: 'Weighted Average', item_cost: 0, weight: '', storage_location: '',
+  remarks: ''
 })
+
+const ITEM_TYPES = ['Item', 'Service']
+const VALUATION_METHODS = ['Weighted Average', 'FIFO', 'Standard']
+const TABS = [
+  { id: 'general', label: 'General' },
+  { id: 'purchasing', label: 'Purchasing Data' },
+  { id: 'sales', label: 'Sales Data' },
+  { id: 'inventory', label: 'Inventory Data' },
+  { id: 'remarks', label: 'Remarks' }
+]
+
+// Row from the database -> form values (empty fields become '' / defaults)
+function fromDb(item) {
+  const base = emptyItem()
+  const out = { ...base }
+  Object.keys(base).forEach((k) => {
+    if (item[k] !== null && item[k] !== undefined) out[k] = item[k]
+  })
+  return out
+}
+
+// Form values -> exactly the columns saved to the database
+function toDb(f) {
+  const num = (v) => (v === '' || v == null ? 0 : Number(v) || 0)
+  const numOrNull = (v) => (v === '' || v == null ? null : Number(v))
+  const txt = (v) => String(v ?? '').trim() || null
+  const lead = numOrNull(f.lead_time_days)
+  return {
+    item_code: f.item_code.trim().toUpperCase(),
+    item_name: f.item_name.trim(),
+    description: f.description?.trim() || '',
+    hsn: f.hsn?.trim() || '',
+    uom: f.uom,
+    gst_rate: Number(f.gst_rate) || 0,
+    unit_price: num(f.unit_price),
+    opening_quantity: num(f.opening_quantity),
+    current_quantity: num(f.current_quantity),
+    reorder_level: num(f.reorder_level),
+    active: Boolean(f.active),
+    category: txt(f.category),
+    brand: txt(f.brand),
+    tax_inclusive: Boolean(f.tax_inclusive),
+    foreign_name: txt(f.foreign_name),
+    item_type: f.item_type || 'Item',
+    barcode: txt(f.barcode),
+    is_inventory_item: Boolean(f.is_inventory_item),
+    is_sales_item: Boolean(f.is_sales_item),
+    is_purchase_item: Boolean(f.is_purchase_item),
+    purchase_price: num(f.purchase_price),
+    preferred_vendor: txt(f.preferred_vendor),
+    lead_time_days: lead === null ? null : Math.round(lead),
+    mrp: num(f.mrp),
+    discount_percent: num(f.discount_percent),
+    min_stock: num(f.min_stock),
+    max_stock: num(f.max_stock),
+    valuation_method: f.valuation_method || 'Weighted Average',
+    item_cost: num(f.item_cost),
+    weight: numOrNull(f.weight),
+    storage_location: txt(f.storage_location),
+    remarks: txt(f.remarks)
+  }
+}
 
 // 'out' = nothing left, 'low' = at or below the reorder level, 'ok' = fine (inactive items never alert)
 function stockStatus(i) {
-  if (!i.active) return 'ok'
+  if (!i.active || i.is_inventory_item === false) return 'ok'
   const qty = Number(i.current_quantity) || 0
   const reorder = Number(i.reorder_level) || 0
   if (qty <= 0) return 'out'
@@ -43,6 +111,7 @@ export default function ItemMaster() {
   const [toDelete, setToDelete] = useState(null)
   const [viewOnly, setViewOnly] = useState(false)
   const [lowOnly, setLowOnly] = useState(false)
+  const [tab, setTab] = useState('general')
 
   async function load() {
     setLoading(true)
@@ -88,9 +157,26 @@ export default function ItemMaster() {
     return filtered.slice(start, start + PAGE_SIZE)
   }, [filtered, page])
 
-  function openCreate() { setEditing(null); setForm(emptyItem()); setErrors({}); setViewOnly(false); setModalOpen(true) }
-  function openEdit(item) { setEditing(item); setForm(item); setErrors({}); setViewOnly(false); setModalOpen(true) }
-  function openView(item) { setEditing(item); setForm(item); setErrors({}); setViewOnly(true); setModalOpen(true) }
+  const itemGroups = useMemo(
+    () => [...new Set(items.map((i) => i.category).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [items]
+  )
+
+  function openCreate() { setEditing(null); setForm(emptyItem()); setErrors({}); setViewOnly(false); setTab('general'); setModalOpen(true) }
+  function openEdit(item) { setEditing(item); setForm(fromDb(item)); setErrors({}); setViewOnly(false); setTab('general'); setModalOpen(true) }
+  function openView(item) { setEditing(item); setForm(fromDb(item)); setErrors({}); setViewOnly(true); setTab('general'); setModalOpen(true) }
+
+  const bind = (k) => ({
+    value: form[k] ?? '',
+    onChange: (e) => setForm((f) => ({ ...f, [k]: e.target.value })),
+    disabled: viewOnly
+  })
+  const check = (k) => ({
+    checked: Boolean(form[k]),
+    onChange: (e) => setForm((f) => ({ ...f, [k]: e.target.checked })),
+    disabled: viewOnly
+  })
+  const invOff = viewOnly || !form.is_inventory_item
 
   async function handleSave() {
     const existingCodes = items.filter((i) => i.id !== editing?.id).map((i) => i.item_code.toUpperCase())
@@ -101,13 +187,7 @@ export default function ItemMaster() {
       const dup = await isDuplicateItemCode(form.item_code, editing?.id)
       if (dup) { setErrors({ item_code: 'This Item Code already exists' }); setSaving(false); return }
 
-      const payload = {
-        ...form,
-        item_code: form.item_code.trim().toUpperCase(),
-        category: form.category?.trim() || null,
-        brand: form.brand?.trim() || null,
-        tax_inclusive: Boolean(form.tax_inclusive)
-      }
+      const payload = toDb(form)
       if (editing) {
         await updateItem(editing.id, payload)
         toast.success('Item updated')
@@ -259,72 +339,165 @@ export default function ItemMaster() {
       </div>
 
       {modalOpen && (
-        <div className="fixed inset-0 z-[90] bg-navy-900/50 flex items-center justify-center p-4">
-          <div className="card bg-white w-full max-w-lg p-5 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-navy">{viewOnly ? 'View Item' : editing ? 'Edit Item' : 'Add Item'}</h3>
-              <button onClick={() => setModalOpen(false)} className="text-navy-300 hover:text-navy-600"><X size={18} /></button>
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-navy-900/50 p-4">
+          <div className="card bg-white flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden !p-0">
+            {/* Title bar */}
+            <div className="flex items-center justify-between bg-navy px-5 py-3">
+              <h3 className="text-sm font-semibold tracking-wide text-white">
+                Item Master Data <span className="font-normal text-white/60">- {viewOnly ? 'View' : editing ? 'Edit' : 'New'}</span>
+              </h3>
+              <button onClick={() => setModalOpen(false)} className="text-white/70 hover:text-white"><X size={18} /></button>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Item Code *" error={errors.item_code}>
-                <input disabled={viewOnly} className="input" value={form.item_code} onChange={(e) => setForm({ ...form, item_code: e.target.value })} />
-              </Field>
-              <Field label="Item Name *" error={errors.item_name}>
-                <input disabled={viewOnly} className="input" value={form.item_name} onChange={(e) => setForm({ ...form, item_name: e.target.value })} />
-              </Field>
-              <Field label="Category">
-                <input disabled={viewOnly} className="input" placeholder="e.g. Motors" value={form.category || ''} onChange={(e) => setForm({ ...form, category: e.target.value })} />
-              </Field>
-              <Field label="Brand">
-                <input disabled={viewOnly} className="input" placeholder="e.g. Crompton" value={form.brand || ''} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
-              </Field>
-              <Field label="HSN/SAC" full>
-                <input disabled={viewOnly} className="input" value={form.hsn} onChange={(e) => setForm({ ...form, hsn: e.target.value })} />
-              </Field>
-              <Field label="Description" full>
-                <textarea disabled={viewOnly} className="input" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-              </Field>
-              <Field label="UOM">
-                <select disabled={viewOnly} className="input" value={form.uom} onChange={(e) => setForm({ ...form, uom: e.target.value })}>
-                  {UOM_OPTIONS.map((u) => <option key={u}>{u}</option>)}
-                </select>
-              </Field>
-              <Field label="GST %">
-                <select disabled={viewOnly} className="input" value={form.gst_rate} onChange={(e) => setForm({ ...form, gst_rate: Number(e.target.value) })}>
-                  {GST_RATES.map((r) => <option key={r} value={r}>{r}%</option>)}
-                </select>
-              </Field>
-              <Field label="Unit Price" error={errors.unit_price}>
-                <input disabled={viewOnly} type="number" min="0" step="0.01" className="input" value={form.unit_price} onChange={(e) => setForm({ ...form, unit_price: e.target.value })} />
-              </Field>
-              <Field label="Price Includes GST">
-                <label className="flex items-center gap-2 text-sm h-[38px]">
-                  <input disabled={viewOnly} type="checkbox" checked={Boolean(form.tax_inclusive)} onChange={(e) => setForm({ ...form, tax_inclusive: e.target.checked })} /> Tax inclusive price
-                </label>
-              </Field>
-              <Field label="Opening Quantity">
-                <input disabled={viewOnly} type="number" min="0" className="input" value={form.opening_quantity} onChange={(e) => setForm({ ...form, opening_quantity: e.target.value })} />
-              </Field>
-              <Field label="Current Quantity">
-                <input disabled={viewOnly} type="number" min="0" className="input" value={form.current_quantity} onChange={(e) => setForm({ ...form, current_quantity: e.target.value })} />
-              </Field>
-              <Field label="Reorder Level">
-                <input disabled={viewOnly} type="number" min="0" className="input" value={form.reorder_level} onChange={(e) => setForm({ ...form, reorder_level: e.target.value })} />
-              </Field>
-              <Field label="Status">
-                <label className="flex items-center gap-2 text-sm">
-                  <input disabled={viewOnly} type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /> Active
-                </label>
-              </Field>
+
+            <div className="flex-1 overflow-y-auto">
+              {/* Header block (always visible) */}
+              <div className="grid gap-x-10 gap-y-2.5 p-5 md:grid-cols-2">
+                <div className="space-y-2.5">
+                  <Row label="Item No. *" error={errors.item_code}>
+                    <input className="input" {...bind('item_code')} />
+                  </Row>
+                  <Row label="Description *" error={errors.item_name}>
+                    <input className="input" {...bind('item_name')} />
+                  </Row>
+                  <Row label="Foreign Name">
+                    <input className="input" {...bind('foreign_name')} />
+                  </Row>
+                  <Row label="Item Type">
+                    <select className="input" {...bind('item_type')}>
+                      {ITEM_TYPES.map((t) => <option key={t}>{t}</option>)}
+                    </select>
+                  </Row>
+                  <Row label="Item Group">
+                    <input className="input" list="item-groups" placeholder="e.g. Motors" {...bind('category')} />
+                    <datalist id="item-groups">
+                      {itemGroups.map((g) => <option key={g} value={g} />)}
+                    </datalist>
+                  </Row>
+                  <Row label="UoM">
+                    <select className="input" {...bind('uom')}>
+                      {UOM_OPTIONS.map((u) => <option key={u}>{u}</option>)}
+                    </select>
+                  </Row>
+                </div>
+
+                <div className="space-y-2.5">
+                  <Row label="Bar Code">
+                    <input className="input" {...bind('barcode')} />
+                  </Row>
+                  <Row label="Unit Price" error={errors.unit_price}>
+                    <div className="flex items-center gap-3">
+                      <input type="number" min="0" step="0.01" className="input" {...bind('unit_price')} />
+                      <label className="flex shrink-0 items-center gap-1.5 text-xs text-navy-500">
+                        <input type="checkbox" {...check('tax_inclusive')} /> incl. GST
+                      </label>
+                    </div>
+                  </Row>
+                  <div className="flex flex-wrap gap-x-6 gap-y-2 rounded-lg border border-navy-100 bg-navy-50/40 px-4 py-3 text-sm text-navy-700">
+                    <label className="flex items-center gap-2"><input type="checkbox" {...check('is_inventory_item')} /> Inventory Item</label>
+                    <label className="flex items-center gap-2"><input type="checkbox" {...check('is_sales_item')} /> Sales Item</label>
+                    <label className="flex items-center gap-2"><input type="checkbox" {...check('is_purchase_item')} /> Purchase Item</label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tabs */}
+              <div className="border-b border-navy-100 px-5">
+                <div className="flex flex-wrap gap-1">
+                  {TABS.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setTab(t.id)}
+                      className={`-mb-px rounded-t-lg border px-4 py-2 text-xs font-semibold transition-colors ${
+                        tab === t.id
+                          ? 'border-navy-100 border-b-white bg-white text-navy'
+                          : 'border-transparent text-navy-400 hover:text-navy'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tab content */}
+              <div className="grid min-h-[230px] content-start gap-x-10 gap-y-2.5 p-5 md:grid-cols-2">
+                {tab === 'general' && (
+                  <>
+                    <Row label="Brand"><input className="input" placeholder="e.g. Crompton" {...bind('brand')} /></Row>
+                    <Row label="HSN/SAC"><input className="input" {...bind('hsn')} /></Row>
+                    <Row label="GST %">
+                      <select
+                        className="input"
+                        value={form.gst_rate}
+                        disabled={viewOnly}
+                        onChange={(e) => setForm((f) => ({ ...f, gst_rate: Number(e.target.value) }))}
+                      >
+                        {GST_RATES.map((r) => <option key={r} value={r}>{r}%</option>)}
+                      </select>
+                    </Row>
+                    <Row label="Status">
+                      <label className="flex h-[38px] items-center gap-2 text-sm"><input type="checkbox" {...check('active')} /> Active</label>
+                    </Row>
+                    <div className="md:col-span-2">
+                      <Row label="Details"><textarea className="input" rows={3} {...bind('description')} /></Row>
+                    </div>
+                  </>
+                )}
+
+                {tab === 'purchasing' && (
+                  <>
+                    <Row label="Preferred Vendor"><input className="input" {...bind('preferred_vendor')} /></Row>
+                    <Row label="Purchase Price"><input type="number" min="0" step="0.01" className="input" {...bind('purchase_price')} /></Row>
+                    <Row label="Lead Time (days)"><input type="number" min="0" step="1" className="input" {...bind('lead_time_days')} /></Row>
+                  </>
+                )}
+
+                {tab === 'sales' && (
+                  <>
+                    <Row label="MRP"><input type="number" min="0" step="0.01" className="input" {...bind('mrp')} /></Row>
+                    <Row label="Discount %"><input type="number" min="0" max="100" step="0.01" className="input" {...bind('discount_percent')} /></Row>
+                  </>
+                )}
+
+                {tab === 'inventory' && (
+                  <>
+                    {!form.is_inventory_item && (
+                      <p className="text-xs text-navy-400 md:col-span-2">This is not an inventory item, so stock fields are switched off. Tick "Inventory Item" above to use them.</p>
+                    )}
+                    <Row label="Opening Qty"><input type="number" min="0" className="input" {...bind('opening_quantity')} disabled={invOff} /></Row>
+                    <Row label="Current Qty"><input type="number" min="0" className="input" {...bind('current_quantity')} disabled={invOff} /></Row>
+                    <Row label="Reorder Level"><input type="number" min="0" className="input" {...bind('reorder_level')} disabled={invOff} /></Row>
+                    <Row label="Minimum Stock"><input type="number" min="0" className="input" {...bind('min_stock')} disabled={invOff} /></Row>
+                    <Row label="Maximum Stock"><input type="number" min="0" className="input" {...bind('max_stock')} disabled={invOff} /></Row>
+                    <Row label="Valuation Method">
+                      <select className="input" {...bind('valuation_method')} disabled={invOff}>
+                        {VALUATION_METHODS.map((m) => <option key={m}>{m}</option>)}
+                      </select>
+                    </Row>
+                    <Row label="Item Cost"><input type="number" min="0" step="0.01" className="input" {...bind('item_cost')} disabled={invOff} /></Row>
+                    <Row label="Weight (kg)"><input type="number" min="0" step="0.001" className="input" {...bind('weight')} disabled={invOff} /></Row>
+                    <Row label="Storage Location"><input className="input" placeholder="e.g. Rack A-2" {...bind('storage_location')} disabled={invOff} /></Row>
+                  </>
+                )}
+
+                {tab === 'remarks' && (
+                  <div className="md:col-span-2">
+                    <textarea className="input" rows={7} placeholder="Internal notes about this item" {...bind('remarks')} />
+                  </div>
+                )}
+              </div>
             </div>
-            {!viewOnly && (
-              <div className="flex justify-end gap-2 mt-5">
-                <button className="btn-outline" onClick={() => setModalOpen(false)}>Cancel</button>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-2 border-t border-navy-100 bg-white px-5 py-3">
+              <button className="btn-outline" onClick={() => setModalOpen(false)}>{viewOnly ? 'Close' : 'Cancel'}</button>
+              {!viewOnly && (
                 <button className="btn-primary" disabled={saving} onClick={handleSave}>
                   {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -342,12 +515,15 @@ export default function ItemMaster() {
   )
 }
 
-function Field({ label, children, error, full }) {
+// One form row: label on the left, input on the right (ERP-style)
+function Row({ label, children, error }) {
   return (
-    <div className={full ? 'col-span-2' : ''}>
-      <label className="label">{label}</label>
-      {children}
-      {error && <p className="text-xs text-brick mt-1">{error}</p>}
+    <div>
+      <div className="grid grid-cols-[130px_1fr] items-center gap-3">
+        <label className="text-xs font-semibold text-navy-500">{label}</label>
+        <div>{children}</div>
+      </div>
+      {error && <p className="ml-[142px] mt-1 text-xs text-brick">{error}</p>}
     </div>
   )
 }
