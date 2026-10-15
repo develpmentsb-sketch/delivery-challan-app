@@ -96,8 +96,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Number cards: small cards stacked on the right side */}
-      <div className="relative z-10 -mt-12 ml-auto mr-3 grid w-48 grid-cols-1 gap-3 lg:mr-6">
+      {/* Number cards: small cards, 3 per row (2 rows), on the right side */}
+      <div className="relative z-10 -mt-12 ml-auto mr-3 grid w-full max-w-[27rem] grid-cols-3 gap-3 lg:mr-6">
         {cards.map((c) => (
           <div
             key={c.label}
