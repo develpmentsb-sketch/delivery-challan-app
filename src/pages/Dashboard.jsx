@@ -5,12 +5,12 @@ import {
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid } from 'recharts'
 import Header from '../components/Header'
-import LoadingSpinner from '../components/LoadingSpinner'
 import EmptyState from '../components/EmptyState'
 import StatusBadge from '../components/StatusBadge'
 import { listChallans, getDashboardStats } from '../services/challanService'
 import { formatCurrency } from '../utils/calculations'
 import { useToast } from '../context/ToastContext'
+import { useAuth } from '../context/AuthContext'
 
 const PIE_COLORS = ['#1B2A4A', '#C98A2C', '#2F6846', '#B23A34', '#8596C0']
 
@@ -21,30 +21,38 @@ const TOOLTIP_STYLE = {
   fontSize: 12
 }
 
+// Keeps the last dashboard data (per user) so coming back to this page is instant;
+// fresh data is still fetched every time and replaces it as soon as it arrives.
+let dashboardCache = null
+
 export default function Dashboard() {
   const toast = useToast()
-  const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState(null)
-  const [recent, setRecent] = useState([])
+  const { user } = useAuth()
+  const uid = user?.id
+  const cached = dashboardCache && dashboardCache.uid === uid ? dashboardCache : null
+  const [stats, setStats] = useState(cached?.stats || null)
+  const [recent, setRecent] = useState(cached?.recent || [])
+  const [recentLoading, setRecentLoading] = useState(!cached?.recent)
 
   useEffect(() => {
     let mounted = true
-    async function load() {
-      try {
-        const [s, list] = await Promise.all([getDashboardStats(), listChallans()])
-        if (!mounted) return
-        setStats(s)
-        setRecent(list.slice(0, 8))
-      } catch (err) {
-        toast.error(err.message || 'Failed to load dashboard')
-      } finally {
-        if (mounted) setLoading(false)
-      }
+    const remember = (patch) => {
+      dashboardCache = { ...(dashboardCache && dashboardCache.uid === uid ? dashboardCache : { uid }), ...patch }
     }
-    load()
+
+    // Stats and recent list load independently, so whichever is ready shows first.
+    getDashboardStats()
+      .then((s) => { if (!mounted) return; setStats(s); remember({ stats: s }) })
+      .catch((err) => { if (mounted) toast.error(err.message || 'Failed to load dashboard') })
+
+    listChallans()
+      .then((list) => { if (!mounted) return; const r = list.slice(0, 8); setRecent(r); remember({ recent: r }) })
+      .catch((err) => { if (mounted) toast.error(err.message || 'Failed to load challans') })
+      .finally(() => { if (mounted) setRecentLoading(false) })
+
     return () => { mounted = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [uid])
 
   const monthlyChart = useMemo(() => {
     const map = {}
@@ -62,15 +70,13 @@ export default function Dashboard() {
     return Object.entries(map).map(([name, value]) => ({ name, value }))
   }, [recent])
 
-  if (loading) return <LoadingSpinner label="Loading dashboard..." />
-
   const cards = [
-    { label: 'Total Delivery Challans', value: stats.total, icon: FileText, color: 'from-navy-500 to-navy-800 text-white' },
-    { label: "Today's Challans", value: stats.today, icon: CalendarClock, color: 'from-gold-400 to-gold-600 text-white' },
-    { label: "This Month's Challans", value: stats.thisMonth, icon: CalendarRange, color: 'from-forest-500 to-forest-600 text-white' },
-    { label: 'E-Way Bills Generated', value: stats.ewayGenerated, icon: FileCheck2, color: 'from-navy-300 to-navy-600 text-white' },
-    { label: 'Pending E-Way Bills', value: stats.ewayPending, icon: FileClock, color: 'from-gold-500 to-gold-600 text-white' },
-    { label: 'Cancelled Challans', value: stats.cancelled, icon: FileX2, color: 'from-brick-500 to-brick-600 text-white' }
+    { label: 'Total Delivery Challans', value: stats ? stats.total : '–', icon: FileText, color: 'from-navy-500 to-navy-800 text-white' },
+    { label: "Today's Challans", value: stats ? stats.today : '–', icon: CalendarClock, color: 'from-gold-400 to-gold-600 text-white' },
+    { label: "This Month's Challans", value: stats ? stats.thisMonth : '–', icon: CalendarRange, color: 'from-forest-500 to-forest-600 text-white' },
+    { label: 'E-Way Bills Generated', value: stats ? stats.ewayGenerated : '–', icon: FileCheck2, color: 'from-navy-300 to-navy-600 text-white' },
+    { label: 'Pending E-Way Bills', value: stats ? stats.ewayPending : '–', icon: FileClock, color: 'from-gold-500 to-gold-600 text-white' },
+    { label: 'Cancelled Challans', value: stats ? stats.cancelled : '–', icon: FileX2, color: 'from-brick-500 to-brick-600 text-white' }
   ]
 
   return (
@@ -94,7 +100,7 @@ export default function Dashboard() {
             <div className={`w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center mb-3 shadow-md ${c.color}`}>
               <c.icon size={18} />
             </div>
-            <p className="text-3xl font-bold text-navy">{c.value}</p>
+            <p className={`text-3xl font-bold text-navy ${stats ? '' : 'animate-pulse opacity-40'}`}>{c.value}</p>
             <p className="text-xs text-navy-400 mt-1 leading-snug">{c.label}</p>
           </div>
         ))}
@@ -103,7 +109,9 @@ export default function Dashboard() {
       <div className="grid lg:grid-cols-3 gap-6 mb-8">
         <div className="card p-5 lg:col-span-2">
           <h3 className="font-semibold text-navy mb-4 text-sm">Delivery Challans by Month</h3>
-          {monthlyChart.length === 0 ? (
+          {recentLoading ? (
+            <div className="h-[240px] rounded-xl bg-navy-50/70 animate-pulse" />
+          ) : monthlyChart.length === 0 ? (
             <EmptyState title="No data yet" description="Create a few delivery challans to see monthly trends." />
           ) : (
             <ResponsiveContainer width="100%" height={240}>
@@ -126,7 +134,9 @@ export default function Dashboard() {
 
         <div className="card p-5">
           <h3 className="font-semibold text-navy mb-4 text-sm">DC Status Split</h3>
-          {statusChart.length === 0 ? (
+          {recentLoading ? (
+            <div className="h-[240px] rounded-xl bg-navy-50/70 animate-pulse" />
+          ) : statusChart.length === 0 ? (
             <EmptyState title="No data yet" />
           ) : (
             <ResponsiveContainer width="100%" height={240}>
@@ -157,7 +167,11 @@ export default function Dashboard() {
           <h3 className="font-semibold text-navy text-sm">Recent Delivery Challans</h3>
           <Link to="/master-list" className="text-xs font-semibold text-gold-600 hover:underline">View all</Link>
         </div>
-        {recent.length === 0 ? (
+        {recentLoading ? (
+          <div className="p-5 space-y-3">
+            {[0, 1, 2, 3].map((i) => <div key={i} className="h-8 rounded-lg bg-navy-50/70 animate-pulse" />)}
+          </div>
+        ) : recent.length === 0 ? (
           <EmptyState
             title="No delivery challans yet"
             description="Create your first delivery challan to see it here."

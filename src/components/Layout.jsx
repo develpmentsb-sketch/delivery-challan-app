@@ -3,7 +3,7 @@ import { Hourglass } from 'lucide-react'
 import Sidebar from './Sidebar'
 import { useAuth } from '../context/AuthContext'
 import { loadCompanyProfile } from '../lib/companyProfile'
-import bgImage from '../assets/transport.jpg'
+import bgImage from '../assets/bg-blur.jpg'
 
 export default function Layout({ children }) {
   const { profile, isActive, signOut, user } = useAuth()
@@ -36,7 +36,7 @@ export default function Layout({ children }) {
     <div className="relative isolate flex min-h-screen">
       {/* Soft blurred transport photo behind the whole app */}
       <div aria-hidden="true" className="fixed inset-0 -z-10 overflow-hidden bg-cream-200">
-        <img src={bgImage} alt="" className="h-full w-full object-cover scale-110 blur-md" />
+        <img src={bgImage} alt="" className="h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-br from-white/70 via-sky-50/65 to-cream-300/70" />
       </div>
 
