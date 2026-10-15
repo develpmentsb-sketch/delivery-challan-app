@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react'
 import { Mail, Lock, Loader2, Truck } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import believeImg from '../assets/login-believe.png'
 
 const INTRO_SEEN_KEY = 'dc_intro_seen'
 
@@ -83,11 +82,7 @@ export default function Login() {
 
   return (
     <div className="relative min-h-screen flex items-center overflow-hidden bg-sky-100 px-4 md:px-[8%] py-4 animate-page-fade-in">
-      <img
-        src={believeImg}
-        alt=""
-        className="pointer-events-none absolute top-1/2 right-[6%] -translate-y-1/2 w-[26rem] h-[26rem] object-contain hidden md:block"
-      />
+      <BelieveQuote />
       <div className="relative z-10 w-full max-w-3xl rounded-[2rem] bg-cream-100 shadow-2xl overflow-hidden flex flex-col md:flex-row">
         {/* Left: welcome / brand panel */}
         <div className="relative w-full md:w-[42%] bg-navy overflow-hidden px-8 py-10 flex flex-col justify-center min-h-[220px] md:min-h-[460px]">
@@ -230,6 +225,46 @@ function IntroSplash({ leaving }) {
         <div className="animate-intro-text mt-6 w-40 h-1 rounded-full bg-white/10 overflow-hidden">
           <div className="h-full bg-gold rounded-full animate-intro-bar" />
         </div>
+      </div>
+    </div>
+  )
+}
+
+// Recreates the "If you Believe in yourself, Anything is possible" quote as
+// real, animated text (each word/line fades and slides in one after another)
+// over soft watercolor-style blobs, instead of a flat picture.
+function BelieveQuote() {
+  return (
+    <div className="pointer-events-none absolute top-1/2 right-[4%] -translate-y-1/2 w-[28rem] h-[28rem] hidden md:flex items-center justify-center animate-float-slow">
+      <div className="absolute inset-0">
+        <div className="absolute top-4 left-10 w-48 h-48 rounded-full bg-sky-300/50 blur-2xl" />
+        <div className="absolute bottom-10 left-0 w-40 h-40 rounded-full bg-pink-200/50 blur-2xl" />
+        <div className="absolute bottom-0 right-6 w-56 h-56 rounded-full bg-teal-200/50 blur-2xl" />
+        <div className="absolute top-10 right-10 w-32 h-32 rounded-full bg-sky-200/40 blur-2xl" />
+      </div>
+
+      <div className="relative text-center leading-tight">
+        <p className="text-sm tracking-[0.3em] text-navy-500 font-semibold animate-intro-text" style={{ animationDelay: '0.1s' }}>
+          IF YOU
+        </p>
+        <p
+          className="font-['Dancing_Script'] text-7xl font-bold text-navy-800 -mt-1 animate-intro-text"
+          style={{ animationDelay: '0.4s' }}
+        >
+          Believe
+        </p>
+        <p className="text-base tracking-[0.3em] text-navy-500 font-semibold -mt-2 animate-intro-text" style={{ animationDelay: '0.8s' }}>
+          IN YOURSELF
+        </p>
+        <p
+          className="font-['Dancing_Script'] text-6xl font-bold text-navy-800 mt-2 animate-intro-text"
+          style={{ animationDelay: '1.1s' }}
+        >
+          Anything
+        </p>
+        <p className="text-base tracking-[0.3em] text-navy-500 font-semibold -mt-1 animate-intro-text" style={{ animationDelay: '1.5s' }}>
+          IS POSSIBLE
+        </p>
       </div>
     </div>
   )
