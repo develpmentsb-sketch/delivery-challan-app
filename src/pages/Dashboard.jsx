@@ -87,11 +87,6 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {(!can || can('challan.create')) && (
-              <Link to="/challan/new" className="btn bg-white text-sky-900 hover:bg-white/90">
-                <Plus size={16} /> Create Delivery Challan
-              </Link>
-            )}
             {(!can || can('challan.view')) && (
               <Link to="/master-list" className="btn border border-white/40 text-white hover:bg-white/10">
                 Master List <ArrowRight size={16} />
@@ -101,20 +96,18 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Number cards: horizontal layout (icon on the left, number and label on the right) */}
+      {/* Number cards: vertical layout (icon on top, number and label underneath) */}
       <div className="relative z-10 -mt-12 grid grid-cols-2 gap-4 px-3 md:grid-cols-3 lg:px-6 xl:grid-cols-6">
         {cards.map((c) => (
           <div
             key={c.label}
-            className="flex items-center gap-3 rounded-2xl border border-white bg-white p-4 shadow-lg shadow-slate-900/5 transition-transform duration-200 hover:-translate-y-0.5"
+            className="rounded-2xl border border-white bg-white p-4 shadow-lg shadow-slate-900/5 transition-transform duration-200 hover:-translate-y-0.5"
           >
-            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${c.tone}`}>
-              <c.icon size={19} />
+            <div className={`flex h-10 w-10 items-center justify-center rounded-full ${c.tone}`}>
+              <c.icon size={18} />
             </div>
-            <div className="min-w-0">
-              <p className={`text-2xl font-bold leading-none text-navy ${stats ? '' : 'animate-pulse opacity-40'}`}>{c.value}</p>
-              <p className="mt-1 text-xs leading-tight text-navy-400">{c.label}</p>
-            </div>
+            <p className={`mt-3 text-3xl font-bold text-navy ${stats ? '' : 'animate-pulse opacity-40'}`}>{c.value}</p>
+            <p className="mt-0.5 text-xs text-navy-400">{c.label}</p>
           </div>
         ))}
       </div>
