@@ -81,7 +81,7 @@ export default function Login() {
   }
 
   return (
-    <div className="relative min-h-screen flex items-center overflow-hidden bg-navy-900 px-4 md:px-[8%] py-4 animate-page-fade-in">
+    <div className="relative min-h-screen flex items-center overflow-hidden bg-sky-100 px-4 md:px-[8%] py-4 animate-page-fade-in">
       <SecurityBackdrop />
       <div className="relative z-10 w-full max-w-3xl rounded-[2rem] bg-cream-100 shadow-2xl overflow-hidden flex flex-col md:flex-row">
         {/* Left: welcome / brand panel */}
@@ -235,10 +235,10 @@ function IntroSplash({ leaving }) {
 function SecurityBackdrop() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_75%_50%,_rgba(59,140,240,0.22)_0%,_transparent_60%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_75%_50%,_rgba(27,42,74,0.08)_0%,_transparent_60%)]" />
 
       <svg
-        className="absolute top-1/2 right-[8%] -translate-y-1/2 w-[34rem] h-[34rem] text-[#3B8CF0]/60 hidden md:block"
+        className="absolute top-1/2 right-[8%] -translate-y-1/2 w-[34rem] h-[34rem] text-navy-400/70 hidden md:block"
         viewBox="0 0 400 400"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
@@ -269,14 +269,14 @@ function SecurityBackdrop() {
 
       {/* glowing shield + lock, centered on the rings */}
       <div className="absolute top-1/2 right-[8%] -translate-y-1/2 w-28 h-28 hidden md:flex items-center justify-center">
-        <div className="absolute w-40 h-40 rounded-full bg-[#5AA7FF]/40 blur-3xl" />
-        <div className="absolute w-16 h-16 rounded-full bg-white/70 blur-xl" />
-        <Shield size={56} className="relative text-[#BFE0FF] drop-shadow-[0_0_18px_rgba(140,200,255,0.9)]" strokeWidth={1.25} />
-        <Lock size={22} className="absolute text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]" strokeWidth={2} />
+        <div className="absolute w-40 h-40 rounded-full bg-white/80 blur-2xl" />
+        <div className="absolute w-16 h-16 rounded-full bg-white blur-sm" />
+        <Shield size={56} className="relative text-navy-600 drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]" strokeWidth={1.5} />
+        <Lock size={22} className="absolute text-navy-800" strokeWidth={2} />
       </div>
 
-      <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-navy-500/30 blur-3xl" />
-      <div className="absolute -bottom-32 -left-10 w-80 h-80 rounded-full bg-navy-600/30 blur-3xl" />
+      <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-white/50 blur-3xl" />
+      <div className="absolute -bottom-32 -left-10 w-80 h-80 rounded-full bg-sky-200/70 blur-3xl" />
     </div>
   )
 }
