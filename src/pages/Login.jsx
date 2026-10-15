@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import { Mail, Lock, Loader2, Shield, Truck } from 'lucide-react'
+import { Mail, Lock, Loader2, Truck } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
+import believeImg from '../assets/login-believe.png'
 
 const INTRO_SEEN_KEY = 'dc_intro_seen'
 
@@ -82,7 +83,11 @@ export default function Login() {
 
   return (
     <div className="relative min-h-screen flex items-center overflow-hidden bg-sky-100 px-4 md:px-[8%] py-4 animate-page-fade-in">
-      <SecurityBackdrop />
+      <img
+        src={believeImg}
+        alt=""
+        className="pointer-events-none absolute top-1/2 right-[6%] -translate-y-1/2 w-[26rem] h-[26rem] object-contain hidden md:block"
+      />
       <div className="relative z-10 w-full max-w-3xl rounded-[2rem] bg-cream-100 shadow-2xl overflow-hidden flex flex-col md:flex-row">
         {/* Left: welcome / brand panel */}
         <div className="relative w-full md:w-[42%] bg-navy overflow-hidden px-8 py-10 flex flex-col justify-center min-h-[220px] md:min-h-[460px]">
@@ -230,53 +235,3 @@ function IntroSplash({ leaving }) {
   )
 }
 
-// Dark navy "security tech" backdrop: concentric circuit rings + a glowing
-// shield-lock, echoing a security/compliance visual without using a stock photo.
-function SecurityBackdrop() {
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_75%_50%,_rgba(27,42,74,0.08)_0%,_transparent_60%)]" />
-
-      <svg
-        className="absolute top-1/2 right-[8%] -translate-y-1/2 w-[34rem] h-[34rem] text-navy-400/70 hidden md:block"
-        viewBox="0 0 400 400"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        {[50, 85, 120, 155, 190].map((r) => (
-          <circle key={r} cx="200" cy="200" r={r} stroke="currentColor" strokeWidth="1" opacity={r === 190 ? 0.9 : 0.5} />
-        ))}
-        {Array.from({ length: 16 }).map((_, i) => {
-          const angle = (i * 22.5 * Math.PI) / 180
-          const x1 = 200 + 95 * Math.cos(angle)
-          const y1 = 200 + 95 * Math.sin(angle)
-          const x2 = 200 + 195 * Math.cos(angle)
-          const y2 = 200 + 195 * Math.sin(angle)
-          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="currentColor" strokeWidth="0.75" opacity="0.5" />
-        })}
-        <rect x="130" y="130" width="140" height="140" stroke="currentColor" strokeWidth="1.25" opacity="0.7" transform="rotate(15 200 200)" />
-        <rect x="150" y="150" width="100" height="100" stroke="currentColor" strokeWidth="1.25" opacity="0.8" transform="rotate(-12 200 200)" />
-        {/* small tick marks around the outer ring, radar-style */}
-        {Array.from({ length: 48 }).map((_, i) => {
-          const angle = (i * 7.5 * Math.PI) / 180
-          const x1 = 200 + 188 * Math.cos(angle)
-          const y1 = 200 + 188 * Math.sin(angle)
-          const x2 = 200 + 196 * Math.cos(angle)
-          const y2 = 200 + 196 * Math.sin(angle)
-          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="currentColor" strokeWidth="1" opacity="0.6" />
-        })}
-      </svg>
-
-      {/* glowing shield + lock, centered on the rings */}
-      <div className="absolute top-1/2 right-[8%] -translate-y-1/2 w-28 h-28 hidden md:flex items-center justify-center">
-        <div className="absolute w-40 h-40 rounded-full bg-white/80 blur-2xl" />
-        <div className="absolute w-16 h-16 rounded-full bg-white blur-sm" />
-        <Shield size={56} className="relative text-navy-600 drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]" strokeWidth={1.5} />
-        <Lock size={22} className="absolute text-navy-800" strokeWidth={2} />
-      </div>
-
-      <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-white/50 blur-3xl" />
-      <div className="absolute -bottom-32 -left-10 w-80 h-80 rounded-full bg-sky-200/70 blur-3xl" />
-    </div>
-  )
-}
