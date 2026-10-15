@@ -26,6 +26,8 @@
   .table-base tbody tr:hover { @apply bg-gold-50/60; }
   .table-accent th { @apply bg-indigo-600 text-white; }
   .table-accent tbody tr:hover { @apply bg-indigo-50/70; }
+  .table-flat th { @apply bg-navy-50 text-navy-600 text-xs uppercase tracking-wide border-b border-navy-100; }
+  .table-flat tbody tr:hover { @apply bg-navy-50/60; }
   .badge { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold; }
 }
 
