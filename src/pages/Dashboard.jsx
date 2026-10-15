@@ -96,12 +96,12 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Number cards: one card per row, stacked vertically */}
-      <div className="relative z-10 -mt-12 grid grid-cols-1 gap-4 px-3 lg:px-6">
+      {/* Number cards: small cards stacked on the right side */}
+      <div className="relative z-10 -mt-12 ml-auto mr-3 grid w-48 grid-cols-1 gap-3 lg:mr-6">
         {cards.map((c) => (
           <div
             key={c.label}
-            className="rounded-2xl border border-white bg-white p-4 shadow-lg shadow-slate-900/5 transition-transform duration-200 hover:-translate-y-0.5"
+            className="rounded-2xl border border-white bg-white p-3 shadow-lg shadow-slate-900/5 transition-transform duration-200 hover:-translate-y-0.5"
           >
             <div className={`flex h-10 w-10 items-center justify-center rounded-full ${c.tone}`}>
               <c.icon size={18} />
