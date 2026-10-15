@@ -7,7 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieC
 import Header from '../components/Header'
 import EmptyState from '../components/EmptyState'
 import StatusBadge from '../components/StatusBadge'
-import { listChallans, getDashboardStats } from '../services/challanService'
+import { listRecentChallans, getDashboardStats } from '../services/challanService'
 import { formatCurrency } from '../utils/calculations'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
@@ -45,7 +45,7 @@ export default function Dashboard() {
       .then((s) => { if (!mounted) return; setStats(s); remember({ stats: s }) })
       .catch((err) => { if (mounted) toast.error(err.message || 'Failed to load dashboard') })
 
-    listChallans()
+    listRecentChallans(8)
       .then((list) => { if (!mounted) return; const r = list.slice(0, 8); setRecent(r); remember({ recent: r }) })
       .catch((err) => { if (mounted) toast.error(err.message || 'Failed to load challans') })
       .finally(() => { if (mounted) setRecentLoading(false) })

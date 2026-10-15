@@ -55,6 +55,17 @@ export async function listChallans(filters = {}) {
   return rows
 }
 
+// Lightweight list for the dashboard: only the newest rows and only the columns it shows.
+export async function listRecentChallans(limit = 8) {
+  const { data, error } = await supabase
+    .from('delivery_challans')
+    .select('id, dc_number, dc_date, grand_total, vehicle_number, dc_status, created_at, bill_to_snapshot, partners ( name ), eway_bills ( status )')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return data || []
+}
+
 export async function getChallan(id) {
   const { data, error } = await supabase.from('delivery_challans').select(CHALLAN_SELECT).eq('id', id).single()
   if (error) throw error
@@ -155,7 +166,15 @@ export async function deleteChallan(id) {
   if (error) throw error
 }
 
+// One fast database call (see the dashboard_stats SQL function). If that function
+// has not been created yet, fall back to counting in the browser like before.
 export async function getDashboardStats() {
+  const { data, error } = await supabase.rpc('dashboard_stats')
+  if (!error && data) return data
+  return getDashboardStatsLegacy()
+}
+
+async function getDashboardStatsLegacy() {
   const { data, error } = await supabase
     .from('delivery_challans')
     .select('id, dc_date, dc_status, grand_total, created_at, eway_bills(status)')
