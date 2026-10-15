@@ -38,6 +38,12 @@ export async function isDuplicateItemCode(code, excludeId = null) {
 
 export async function bulkImportItems(rows) {
   // Expects rows shaped like the exported Excel columns; maps loosely.
+  // Only touch Category / Brand / Price-includes-GST when the file actually has those columns,
+  // so importing an older file never wipes values already saved.
+  const hasCategory = rows.some((r) => 'Category' in r)
+  const hasBrand = rows.some((r) => 'Brand' in r)
+  const hasTaxIncl = rows.some((r) => 'Price Includes GST' in r)
+
   const payload = rows
     .filter((r) => r['Item Code'] && r['Item Name'])
     .map((r) => ({
@@ -51,7 +57,10 @@ export async function bulkImportItems(rows) {
       opening_quantity: Number(r['Opening Quantity']) || 0,
       current_quantity: Number(r['Current Quantity'] ?? r['Opening Quantity']) || 0,
       reorder_level: Number(r['Reorder Level']) || 0,
-      active: String(r['Status'] || 'Active').toLowerCase() !== 'inactive'
+      active: String(r['Status'] || 'Active').toLowerCase() !== 'inactive',
+      ...(hasCategory ? { category: String(r['Category'] || '').trim() || null } : {}),
+      ...(hasBrand ? { brand: String(r['Brand'] || '').trim() || null } : {}),
+      ...(hasTaxIncl ? { tax_inclusive: ['yes', 'true', 'y', '1'].includes(String(r['Price Includes GST']).trim().toLowerCase()) } : {})
     }))
 
   if (!payload.length) return { imported: 0 }

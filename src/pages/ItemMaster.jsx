@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Plus, Search, Pencil, Trash2, FileSpreadsheet, Upload, X, Save, Loader2 } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, FileSpreadsheet, Upload, X, Save, Loader2, AlertTriangle } from 'lucide-react'
 import Header from '../components/Header'
 import LoadingSpinner from '../components/LoadingSpinner'
 import EmptyState from '../components/EmptyState'
@@ -15,8 +15,19 @@ const PAGE_SIZE = 10
 
 const emptyItem = () => ({
   item_code: '', item_name: '', description: '', hsn: '', uom: 'NOS', gst_rate: 0,
-  unit_price: 0, opening_quantity: 0, current_quantity: 0, reorder_level: 0, active: true
+  unit_price: 0, opening_quantity: 0, current_quantity: 0, reorder_level: 0, active: true,
+  category: '', brand: '', tax_inclusive: false
 })
+
+// 'out' = nothing left, 'low' = at or below the reorder level, 'ok' = fine (inactive items never alert)
+function stockStatus(i) {
+  if (!i.active) return 'ok'
+  const qty = Number(i.current_quantity) || 0
+  const reorder = Number(i.reorder_level) || 0
+  if (qty <= 0) return 'out'
+  if (reorder > 0 && qty <= reorder) return 'low'
+  return 'ok'
+}
 
 export default function ItemMaster() {
   const toast = useToast()
@@ -31,6 +42,7 @@ export default function ItemMaster() {
   const [saving, setSaving] = useState(false)
   const [toDelete, setToDelete] = useState(null)
   const [viewOnly, setViewOnly] = useState(false)
+  const [lowOnly, setLowOnly] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -44,11 +56,32 @@ export default function ItemMaster() {
   }
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const stockCounts = useMemo(() => {
+    let out = 0
+    let low = 0
+    items.forEach((i) => {
+      const st = stockStatus(i)
+      if (st === 'out') out++
+      else if (st === 'low') low++
+    })
+    return { out, low }
+  }, [items])
+  const alertCount = stockCounts.out + stockCounts.low
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    if (!q) return items
-    return items.filter((i) => i.item_name.toLowerCase().includes(q) || i.item_code.toLowerCase().includes(q) || i.hsn?.toLowerCase().includes(q))
-  }, [items, search])
+    let list = items
+    if (lowOnly && alertCount > 0) list = list.filter((i) => stockStatus(i) !== 'ok')
+    if (!q) return list
+    return list.filter(
+      (i) =>
+        i.item_name.toLowerCase().includes(q) ||
+        i.item_code.toLowerCase().includes(q) ||
+        i.hsn?.toLowerCase().includes(q) ||
+        i.category?.toLowerCase().includes(q) ||
+        i.brand?.toLowerCase().includes(q)
+    )
+  }, [items, search, lowOnly, alertCount])
 
   const paged = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE
@@ -68,7 +101,13 @@ export default function ItemMaster() {
       const dup = await isDuplicateItemCode(form.item_code, editing?.id)
       if (dup) { setErrors({ item_code: 'This Item Code already exists' }); setSaving(false); return }
 
-      const payload = { ...form, item_code: form.item_code.trim().toUpperCase() }
+      const payload = {
+        ...form,
+        item_code: form.item_code.trim().toUpperCase(),
+        category: form.category?.trim() || null,
+        brand: form.brand?.trim() || null,
+        tax_inclusive: Boolean(form.tax_inclusive)
+      }
       if (editing) {
         await updateItem(editing.id, payload)
         toast.success('Item updated')
@@ -130,10 +169,29 @@ export default function ItemMaster() {
         }
       />
 
+      {alertCount > 0 && (
+        <div className="card p-4 mb-6 flex flex-wrap items-center justify-between gap-3 border-amber-300">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+              <AlertTriangle size={18} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-navy">Stock alert</p>
+              <p className="text-xs text-navy-400">
+                {stockCounts.out} out of stock &middot; {stockCounts.low} running low
+              </p>
+            </div>
+          </div>
+          <button className="btn-outline" onClick={() => { setLowOnly((v) => !v); setPage(1) }}>
+            {lowOnly ? 'Show all items' : 'Show only these items'}
+          </button>
+        </div>
+      )}
+
       <div className="card p-4 mb-6">
         <div className="relative max-w-sm">
           <Search size={14} className="absolute left-3 top-3 text-navy-300" />
-          <input className="input pl-8" placeholder="Search by Item Code, Name or HSN..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} />
+          <input className="input pl-8" placeholder="Search by Item Code, Name, HSN, Category or Brand..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} />
         </div>
       </div>
 
@@ -148,22 +206,38 @@ export default function ItemMaster() {
               <table className="table-base">
                 <thead>
                   <tr>
-                    <th>Item Code</th><th>Item Name</th><th>HSN/SAC</th><th>UOM</th>
+                    <th>Item Code</th><th>Item Name</th><th>Category / Brand</th><th>HSN/SAC</th><th>UOM</th>
                     <th className="text-right">GST %</th><th className="text-right">Unit Price</th>
                     <th className="text-right">Current Qty</th><th className="text-right">Reorder Level</th>
                     <th>Status</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paged.map((i) => (
-                    <tr key={i.id}>
+                  {paged.map((i) => {
+                    const st = stockStatus(i)
+                    return (
+                    <tr key={i.id} className={st === 'out' ? 'bg-red-50/60' : st === 'low' ? 'bg-amber-50/60' : ''}>
                       <td className="font-medium text-navy">{i.item_code}</td>
                       <td>{i.item_name}</td>
+                      <td>
+                        {i.category || '-'}
+                        {i.brand && <span className="block text-[11px] text-navy-400">{i.brand}</span>}
+                      </td>
                       <td>{i.hsn || '-'}</td>
                       <td>{i.uom}</td>
                       <td className="text-right">{i.gst_rate}%</td>
-                      <td className="text-right">{Number(i.unit_price).toFixed(2)}</td>
-                      <td className={`text-right ${i.current_quantity <= i.reorder_level ? 'text-brick font-semibold' : ''}`}>{i.current_quantity}</td>
+                      <td className="text-right">
+                        {Number(i.unit_price).toFixed(2)}
+                        {i.tax_inclusive && <span className="block text-[10px] text-navy-400">incl. GST</span>}
+                      </td>
+                      <td className="text-right">
+                        <span className={st === 'out' ? 'text-red-600 font-semibold' : st === 'low' ? 'text-amber-600 font-semibold' : ''}>{i.current_quantity}</span>
+                        {st !== 'ok' && (
+                          <span className={`badge ml-2 ${st === 'out' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {st === 'out' ? 'Out of stock' : 'Low stock'}
+                          </span>
+                        )}
+                      </td>
                       <td className="text-right">{i.reorder_level}</td>
                       <td><span className={`badge ${i.active ? 'bg-forest-100 text-forest-600' : 'bg-navy-100 text-navy-500'}`}>{i.active ? 'Active' : 'Inactive'}</span></td>
                       <td>
@@ -174,7 +248,8 @@ export default function ItemMaster() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -185,7 +260,7 @@ export default function ItemMaster() {
 
       {modalOpen && (
         <div className="fixed inset-0 z-[90] bg-navy-900/50 flex items-center justify-center p-4">
-          <div className="card w-full max-w-lg p-5 max-h-[90vh] overflow-y-auto">
+          <div className="card bg-white w-full max-w-lg p-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-navy">{viewOnly ? 'View Item' : editing ? 'Edit Item' : 'Add Item'}</h3>
               <button onClick={() => setModalOpen(false)} className="text-navy-300 hover:text-navy-600"><X size={18} /></button>
@@ -196,6 +271,12 @@ export default function ItemMaster() {
               </Field>
               <Field label="Item Name *" error={errors.item_name}>
                 <input disabled={viewOnly} className="input" value={form.item_name} onChange={(e) => setForm({ ...form, item_name: e.target.value })} />
+              </Field>
+              <Field label="Category">
+                <input disabled={viewOnly} className="input" placeholder="e.g. Motors" value={form.category || ''} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+              </Field>
+              <Field label="Brand">
+                <input disabled={viewOnly} className="input" placeholder="e.g. Crompton" value={form.brand || ''} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
               </Field>
               <Field label="HSN/SAC" full>
                 <input disabled={viewOnly} className="input" value={form.hsn} onChange={(e) => setForm({ ...form, hsn: e.target.value })} />
@@ -216,6 +297,11 @@ export default function ItemMaster() {
               <Field label="Unit Price" error={errors.unit_price}>
                 <input disabled={viewOnly} type="number" min="0" step="0.01" className="input" value={form.unit_price} onChange={(e) => setForm({ ...form, unit_price: e.target.value })} />
               </Field>
+              <Field label="Price Includes GST">
+                <label className="flex items-center gap-2 text-sm h-[38px]">
+                  <input disabled={viewOnly} type="checkbox" checked={Boolean(form.tax_inclusive)} onChange={(e) => setForm({ ...form, tax_inclusive: e.target.checked })} /> Tax inclusive price
+                </label>
+              </Field>
               <Field label="Opening Quantity">
                 <input disabled={viewOnly} type="number" min="0" className="input" value={form.opening_quantity} onChange={(e) => setForm({ ...form, opening_quantity: e.target.value })} />
               </Field>
@@ -225,7 +311,7 @@ export default function ItemMaster() {
               <Field label="Reorder Level">
                 <input disabled={viewOnly} type="number" min="0" className="input" value={form.reorder_level} onChange={(e) => setForm({ ...form, reorder_level: e.target.value })} />
               </Field>
-              <Field label="Status" full>
+              <Field label="Status">
                 <label className="flex items-center gap-2 text-sm">
                   <input disabled={viewOnly} type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /> Active
                 </label>

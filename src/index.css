@@ -16,6 +16,8 @@
   .btn-danger { @apply btn bg-brick text-cream-100 hover:bg-brick-600; }
   .btn-ghost { @apply btn text-navy-700 hover:bg-navy-50; }
   .card { @apply bg-white/85 rounded-2xl shadow-card border border-white/70; }
+  /* Cards inside a full-screen overlay (popups / dialogs) stay solid so the page behind never shows through */
+  .fixed > .card { background-color: #ffffff; }
   .input { @apply w-full rounded-md border border-navy-200 bg-cream-100 px-3 py-2 text-sm text-navy-800 placeholder:text-navy-300 focus:outline-none focus:ring-2 focus:ring-gold-400 focus:border-gold-500; }
   .label { @apply block text-xs font-semibold uppercase tracking-wide text-navy-500 mb-1; }
   .table-base { @apply w-full text-sm text-left border-collapse; }
