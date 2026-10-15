@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react'
 import { Mail, Lock, Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import TransportBanner from '../components/TransportBanner'
+import TransportBackground from '../components/TransportBackground'
 
 const INTRO_SEEN_KEY = 'dc_intro_seen'
 
 export default function Login() {
-  const { signIn, signUp, signInWithOAuth, resetPassword } = useAuth()
+  const { signIn, signUp, resetPassword } = useAuth()
   const toast = useToast()
   const [mode, setMode] = useState('signin') // 'signin' | 'signup' | 'forgot'
   const [email, setEmail] = useState('')
@@ -15,7 +15,6 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [remember, setRemember] = useState(true)
   const [loading, setLoading] = useState(false)
-  const [oauthLoading, setOauthLoading] = useState(false)
 
   // Play the opening animation once per browser tab/session, not on every
   // re-render (e.g. switching between Sign In / Sign Up / Forgot Password).
@@ -66,141 +65,97 @@ export default function Login() {
     }
   }
 
-  const handleOAuth = async () => {
-    setOauthLoading(true)
-    try {
-      const { error } = await signInWithOAuth('google')
-      if (error) throw error
-    } catch (err) {
-      toast.error(err.message || 'Could not sign in')
-      setOauthLoading(false)
-    }
-  }
-
   if (showIntro) {
     return <IntroSplash leaving={introLeaving} />
   }
 
+  const fieldClass =
+    'input pl-9 !bg-white/15 !text-white !border-white/30 placeholder:!text-white/70 focus:!border-gold-400'
+
   return (
-    <div className="relative min-h-screen flex items-center overflow-hidden bg-sky-100 px-4 md:px-[8%] py-4 animate-page-fade-in">
-      {/* Right side: animated transport banner (replaces the old quote) */}
-      <div className="pointer-events-none absolute top-1/2 right-[4%] -translate-y-1/2 w-[26rem] hidden md:block">
-        <TransportBanner />
-      </div>
-      <div className="relative z-10 w-full max-w-3xl rounded-[2rem] bg-cream-100 shadow-2xl overflow-hidden flex flex-col md:flex-row">
-        {/* Left: welcome / brand panel */}
-        <div className="relative w-full md:w-[42%] bg-navy overflow-hidden px-8 py-10 flex flex-col justify-center min-h-[220px] md:min-h-[460px]">
-          <div className="pointer-events-none absolute inset-0">
-            <div className="absolute -bottom-16 -left-10 w-48 h-48 rounded-full bg-navy-400/70" />
-            <div className="absolute bottom-10 left-28 w-24 h-24 rounded-full bg-navy-300/60" />
-            <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-navy-400/40" />
-          </div>
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-8 animate-page-fade-in">
+      {/* Full-screen animated transport background */}
+      <TransportBackground />
+
+      {/* Transparent (glass) sign-in card */}
+      <div className="relative z-10 w-full max-w-md rounded-3xl border border-white/25 bg-[rgba(15,26,53,0.35)] backdrop-blur-xl shadow-2xl px-8 py-9 sm:px-10">
+        <p className="text-gold-400 font-semibold text-[11px] tracking-[0.18em] mb-2">DELIVERY CHALLAN &amp; E-WAY BILL</p>
+        <h1 className="text-3xl font-bold text-white mb-1">
+          {mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Sign Up' : 'Reset Password'}
+        </h1>
+        <p className="text-sm text-white/75 mb-7">
+          {mode === 'signin' && 'Enter your details to access your dashboard.'}
+          {mode === 'signup' && 'Create an account to get started.'}
+          {mode === 'forgot' && "Enter your email and we'll send a reset link."}
+        </p>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="relative">
-            <h2 className="text-2xl font-extrabold text-white tracking-wide">WELCOME</h2>
-            <p className="text-gold-400 font-semibold text-sm tracking-wide mt-1">DELIVERY CHALLAN &amp; E-WAY BILL</p>
-            <p className="text-white/60 text-xs mt-4 max-w-[220px]">
-              Manage your challans, e-way bills and stock ledger from one simple dashboard.
-            </p>
+            <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70" />
+            <input
+              className={fieldClass}
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email Address"
+            />
           </div>
-        </div>
-
-        {/* Right: form panel */}
-        <div className="relative w-full md:w-[58%] px-8 py-10 flex flex-col justify-center">
-          <h1 className="text-2xl font-bold text-navy mb-1">
-            {mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Sign Up' : 'Reset Password'}
-          </h1>
-          <p className="text-xs text-navy-400 mb-6">
-            {mode === 'signin' && 'Enter your details to access your dashboard.'}
-            {mode === 'signup' && 'Create an account to get started.'}
-            {mode === 'forgot' && "Enter your email and we'll send a reset link."}
-          </p>
-
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="relative">
-              <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-navy-300" />
-              <input
-                className="input pl-9"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email Address"
-              />
-            </div>
-
-            {mode !== 'forgot' && (
-              <div className="relative">
-                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-navy-300" />
-                <input
-                  className="input pl-9 pr-16"
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  minLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((s) => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-navy-400 hover:text-navy-700 uppercase tracking-wide"
-                  tabIndex={-1}
-                >
-                  {showPassword ? 'Hide' : 'Show'}
-                </button>
-              </div>
-            )}
-
-            {mode === 'signin' && (
-              <div className="flex items-center justify-between text-xs pt-1">
-                <label className="flex items-center gap-1.5 text-navy-500">
-                  <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="rounded border-navy-200" />
-                  Remember me
-                </label>
-                <button type="button" onClick={() => setMode('forgot')} className="text-gold-600 hover:text-gold-500 font-medium">
-                  Forgot Password?
-                </button>
-              </div>
-            )}
-
-            <button type="submit" disabled={loading} className="btn-primary w-full !py-2.5 mt-2">
-              {loading && <Loader2 size={16} className="animate-spin" />}
-              {mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send Reset Link'}
-            </button>
-          </form>
 
           {mode !== 'forgot' && (
-            <>
-              <div className="flex items-center gap-3 my-4">
-                <div className="h-px flex-1 bg-navy-100" />
-                <span className="text-[11px] text-navy-300">Or</span>
-                <div className="h-px flex-1 bg-navy-100" />
-              </div>
+            <div className="relative">
+              <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70" />
+              <input
+                className={`${fieldClass} pr-16`}
+                type={showPassword ? 'text' : 'password'}
+                required
+                minLength={6}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+              />
               <button
                 type="button"
-                onClick={handleOAuth}
-                disabled={oauthLoading}
-                className="btn-outline w-full !py-2.5 justify-center disabled:opacity-50"
+                onClick={() => setShowPassword((s) => !s)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-white/80 hover:text-white uppercase tracking-wide"
+                tabIndex={-1}
               >
-                {oauthLoading ? <Loader2 size={16} className="animate-spin" /> : 'Sign in with Google'}
+                {showPassword ? 'Hide' : 'Show'}
               </button>
-            </>
+            </div>
           )}
 
-          <p className="text-xs text-navy-400 mt-6 text-center">
-            {mode === 'forgot' ? (
-              <button onClick={() => setMode('signin')} className="text-navy-700 font-semibold hover:text-navy">Back to Sign In</button>
-            ) : mode === 'signin' ? (
-              <>Don&apos;t have an account?{' '}
-                <button onClick={() => setMode('signup')} className="text-navy-700 font-semibold hover:text-navy">Sign Up</button>
-              </>
-            ) : (
-              <>Already have an account?{' '}
-                <button onClick={() => setMode('signin')} className="text-navy-700 font-semibold hover:text-navy">Sign In</button>
-              </>
-            )}
-          </p>
-        </div>
+          {mode === 'signin' && (
+            <div className="flex items-center justify-between text-xs pt-1">
+              <label className="flex items-center gap-1.5 text-white/80">
+                <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="rounded border-white/40" />
+                Remember me
+              </label>
+              <button type="button" onClick={() => setMode('forgot')} className="text-gold-400 hover:text-gold-300 font-medium">
+                Forgot Password?
+              </button>
+            </div>
+          )}
+
+          <button type="submit" disabled={loading} className="btn-primary w-full !py-3 mt-3 !bg-gold-400 !text-navy hover:brightness-110">
+            {loading && <Loader2 size={16} className="animate-spin" />}
+            {mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send Reset Link'}
+          </button>
+        </form>
+
+        <p className="text-xs text-white/75 mt-7 text-center">
+          {mode === 'forgot' ? (
+            <button onClick={() => setMode('signin')} className="text-white font-semibold hover:underline">Back to Sign In</button>
+          ) : mode === 'signin' ? (
+            <>Don&apos;t have an account?{' '}
+              <button onClick={() => setMode('signup')} className="text-white font-semibold hover:underline">Sign Up</button>
+            </>
+          ) : (
+            <>Already have an account?{' '}
+              <button onClick={() => setMode('signin')} className="text-white font-semibold hover:underline">Sign In</button>
+            </>
+          )}
+        </p>
       </div>
     </div>
   )
