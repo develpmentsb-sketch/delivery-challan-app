@@ -37,7 +37,14 @@ export default function Layout({ children }) {
       {/* Soft blurred transport photo behind the whole app */}
       <div aria-hidden="true" className="fixed inset-0 -z-10 overflow-hidden bg-cream-200">
         <img src={bgImage} alt="" className="h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-br from-white/70 via-sky-50/65 to-cream-300/70" />
+        <div className="absolute inset-0 bg-white/55" />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(700px circle at 88% 8%, rgba(217,70,239,0.22), transparent 60%), radial-gradient(800px circle at 8% 92%, rgba(34,211,238,0.28), transparent 60%), radial-gradient(600px circle at 55% 45%, rgba(251,191,36,0.16), transparent 60%), radial-gradient(600px circle at 20% 10%, rgba(99,102,241,0.18), transparent 60%)'
+          }}
+        />
       </div>
 
       <Sidebar />

@@ -12,7 +12,7 @@ import { formatCurrency } from '../utils/calculations'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 
-const PIE_COLORS = ['#1B2A4A', '#C98A2C', '#2F6846', '#B23A34', '#8596C0']
+const PIE_COLORS = ['#6366F1', '#F59E0B', '#10B981', '#F43F5E', '#06B6D4', '#A855F7']
 
 const TOOLTIP_STYLE = {
   borderRadius: 12,
@@ -71,12 +71,12 @@ export default function Dashboard() {
   }, [recent])
 
   const cards = [
-    { label: 'Total Delivery Challans', value: stats ? stats.total : '–', icon: FileText, color: 'from-navy-500 to-navy-800 text-white' },
-    { label: "Today's Challans", value: stats ? stats.today : '–', icon: CalendarClock, color: 'from-gold-400 to-gold-600 text-white' },
-    { label: "This Month's Challans", value: stats ? stats.thisMonth : '–', icon: CalendarRange, color: 'from-forest-500 to-forest-600 text-white' },
-    { label: 'E-Way Bills Generated', value: stats ? stats.ewayGenerated : '–', icon: FileCheck2, color: 'from-navy-300 to-navy-600 text-white' },
-    { label: 'Pending E-Way Bills', value: stats ? stats.ewayPending : '–', icon: FileClock, color: 'from-gold-500 to-gold-600 text-white' },
-    { label: 'Cancelled Challans', value: stats ? stats.cancelled : '–', icon: FileX2, color: 'from-brick-500 to-brick-600 text-white' }
+    { label: 'Total Delivery Challans', value: stats ? stats.total : '–', icon: FileText, grad: 'from-indigo-500 to-violet-600', glow: 'shadow-indigo-500/30' },
+    { label: "Today's Challans", value: stats ? stats.today : '–', icon: CalendarClock, grad: 'from-amber-400 to-orange-500', glow: 'shadow-orange-500/30' },
+    { label: "This Month's Challans", value: stats ? stats.thisMonth : '–', icon: CalendarRange, grad: 'from-emerald-500 to-teal-600', glow: 'shadow-emerald-500/30' },
+    { label: 'E-Way Bills Generated', value: stats ? stats.ewayGenerated : '–', icon: FileCheck2, grad: 'from-sky-500 to-blue-600', glow: 'shadow-sky-500/30' },
+    { label: 'Pending E-Way Bills', value: stats ? stats.ewayPending : '–', icon: FileClock, grad: 'from-fuchsia-500 to-pink-500', glow: 'shadow-pink-500/30' },
+    { label: 'Cancelled Challans', value: stats ? stats.cancelled : '–', icon: FileX2, grad: 'from-rose-500 to-red-600', glow: 'shadow-rose-500/30' }
   ]
 
   return (
@@ -95,20 +95,22 @@ export default function Dashboard() {
         {cards.map((c) => (
           <div
             key={c.label}
-            className="card p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl"
+            className={`relative overflow-hidden rounded-2xl p-4 text-white bg-gradient-to-br shadow-lg ${c.grad} ${c.glow} transition-all duration-200 hover:-translate-y-1 hover:shadow-xl`}
           >
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center mb-3 shadow-md ${c.color}`}>
+            <div className="pointer-events-none absolute -right-5 -top-5 h-20 w-20 rounded-full bg-white/15" />
+            <div className="pointer-events-none absolute -bottom-8 -right-2 h-16 w-16 rounded-full bg-white/10" />
+            <div className="relative w-10 h-10 rounded-xl bg-white/25 flex items-center justify-center mb-3">
               <c.icon size={18} />
             </div>
-            <p className={`text-3xl font-bold text-navy ${stats ? '' : 'animate-pulse opacity-40'}`}>{c.value}</p>
-            <p className="text-xs text-navy-400 mt-1 leading-snug">{c.label}</p>
+            <p className={`relative text-3xl font-bold ${stats ? '' : 'animate-pulse opacity-60'}`}>{c.value}</p>
+            <p className="relative text-xs text-white/90 mt-1 leading-snug">{c.label}</p>
           </div>
         ))}
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6 mb-8">
         <div className="card p-5 lg:col-span-2">
-          <h3 className="font-semibold text-navy mb-4 text-sm">Delivery Challans by Month</h3>
+          <h3 className="font-semibold text-navy mb-4 text-sm"><span className="mr-2 inline-block h-4 w-1.5 rounded-full bg-gradient-to-b from-indigo-500 to-cyan-400 align-middle" />Delivery Challans by Month</h3>
           {recentLoading ? (
             <div className="h-[240px] rounded-xl bg-navy-50/70 animate-pulse" />
           ) : monthlyChart.length === 0 ? (
@@ -118,14 +120,14 @@ export default function Dashboard() {
               <BarChart data={monthlyChart}>
                 <defs>
                   <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#5D73AB" />
-                    <stop offset="100%" stopColor="#1B2A4A" />
+                    <stop offset="0%" stopColor="#22D3EE" />
+                    <stop offset="100%" stopColor="#6366F1" />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#D6DCEA" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: 'rgba(27,42,74,0.06)' }} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: 'rgba(99,102,241,0.08)' }} />
                 <Bar dataKey="count" fill="url(#barGrad)" radius={[8, 8, 0, 0]} maxBarSize={56} />
               </BarChart>
             </ResponsiveContainer>
@@ -133,7 +135,7 @@ export default function Dashboard() {
         </div>
 
         <div className="card p-5">
-          <h3 className="font-semibold text-navy mb-4 text-sm">DC Status Split</h3>
+          <h3 className="font-semibold text-navy mb-4 text-sm"><span className="mr-2 inline-block h-4 w-1.5 rounded-full bg-gradient-to-b from-fuchsia-500 to-amber-400 align-middle" />DC Status Split</h3>
           {recentLoading ? (
             <div className="h-[240px] rounded-xl bg-navy-50/70 animate-pulse" />
           ) : statusChart.length === 0 ? (
@@ -164,7 +166,7 @@ export default function Dashboard() {
 
       <div className="card">
         <div className="flex items-center justify-between px-5 py-4 border-b border-navy-100/70">
-          <h3 className="font-semibold text-navy text-sm">Recent Delivery Challans</h3>
+          <h3 className="font-semibold text-navy text-sm"><span className="mr-2 inline-block h-4 w-1.5 rounded-full bg-gradient-to-b from-emerald-500 to-sky-400 align-middle" />Recent Delivery Challans</h3>
           <Link to="/master-list" className="text-xs font-semibold text-gold-600 hover:underline">View all</Link>
         </div>
         {recentLoading ? (
@@ -179,7 +181,7 @@ export default function Dashboard() {
           />
         ) : (
           <div className="overflow-x-auto rounded-b-2xl">
-            <table className="table-base">
+            <table className="table-base table-accent">
               <thead>
                 <tr>
                   <th>DC No.</th><th>Date</th><th>Vendor</th><th className="text-right">Grand Total</th>

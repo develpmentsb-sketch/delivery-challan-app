@@ -44,7 +44,7 @@ export default function Sidebar() {
     <aside
       className={`flex flex-col shrink-0 text-white transition-all duration-200 ${
         collapsed ? 'w-[68px]' : 'w-64'
-      } m-3 h-[calc(100vh-1.5rem)] sticky top-3 rounded-2xl border border-white/20 shadow-2xl backdrop-blur-xl bg-gradient-to-b from-navy/80 to-navy-800/85`}
+      } m-3 h-[calc(100vh-1.5rem)] sticky top-3 rounded-2xl border border-white/20 shadow-2xl backdrop-blur-xl bg-gradient-to-b from-indigo-700/85 via-violet-700/80 to-fuchsia-800/80`}
     >
       <div className="flex items-center gap-2 px-4 h-16 border-b border-white/15">
         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gold-400 to-gold flex items-center justify-center text-navy-900 shrink-0 shadow-md shadow-black/30">
@@ -68,7 +68,7 @@ export default function Sidebar() {
         {BOTTOM_ITEMS.filter((i) => can(i.perm)).map(renderItem)}
         <button
           onClick={signOut}
-          className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white/85 transition-all duration-200 hover:bg-brick/80 hover:text-white"
+          className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white/85 transition-all duration-200 hover:bg-rose-500/70 hover:text-white"
         >
           <LogOut size={18} className="shrink-0" />
           {!collapsed && <span className="truncate">Logout{user?.email ? ` (${user.email})` : ''}</span>}
