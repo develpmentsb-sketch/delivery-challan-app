@@ -71,12 +71,12 @@ export default function Dashboard() {
   }, [recent])
 
   const cards = [
-    { label: 'Total Delivery Challans', value: stats ? stats.total : '–', icon: FileText, grad: 'from-indigo-500 to-violet-600', glow: 'shadow-indigo-500/30' },
-    { label: "Today's Challans", value: stats ? stats.today : '–', icon: CalendarClock, grad: 'from-amber-400 to-orange-500', glow: 'shadow-orange-500/30' },
-    { label: "This Month's Challans", value: stats ? stats.thisMonth : '–', icon: CalendarRange, grad: 'from-emerald-500 to-teal-600', glow: 'shadow-emerald-500/30' },
-    { label: 'E-Way Bills Generated', value: stats ? stats.ewayGenerated : '–', icon: FileCheck2, grad: 'from-sky-500 to-blue-600', glow: 'shadow-sky-500/30' },
-    { label: 'Pending E-Way Bills', value: stats ? stats.ewayPending : '–', icon: FileClock, grad: 'from-fuchsia-500 to-pink-500', glow: 'shadow-pink-500/30' },
-    { label: 'Cancelled Challans', value: stats ? stats.cancelled : '–', icon: FileX2, grad: 'from-rose-500 to-red-600', glow: 'shadow-rose-500/30' }
+    { label: 'Total Delivery Challans', value: stats ? stats.total : '–', icon: FileText, grad: 'from-blue-600 to-blue-800', glow: 'shadow-blue-700/30' },
+    { label: "Today's Challans", value: stats ? stats.today : '–', icon: CalendarClock, grad: 'from-sky-500 to-blue-600', glow: 'shadow-sky-600/30' },
+    { label: "This Month's Challans", value: stats ? stats.thisMonth : '–', icon: CalendarRange, grad: 'from-cyan-500 to-teal-600', glow: 'shadow-teal-600/30' },
+    { label: 'E-Way Bills Generated', value: stats ? stats.ewayGenerated : '–', icon: FileCheck2, grad: 'from-teal-500 to-emerald-600', glow: 'shadow-emerald-600/30' },
+    { label: 'Pending E-Way Bills', value: stats ? stats.ewayPending : '–', icon: FileClock, grad: 'from-amber-500 to-amber-600', glow: 'shadow-amber-600/30' },
+    { label: 'Cancelled Challans', value: stats ? stats.cancelled : '–', icon: FileX2, grad: 'from-rose-500 to-rose-700', glow: 'shadow-rose-600/30' }
   ]
 
   return (

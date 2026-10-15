@@ -25,7 +25,7 @@ const BOTTOM_ITEMS = [
 const linkClass = ({ isActive }) =>
   `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
     isActive
-      ? 'bg-gradient-to-r from-gold-400 to-gold text-navy-900 shadow-lg shadow-black/25'
+      ? 'bg-white/95 text-sky-900 shadow-lg shadow-black/20'
       : 'text-white/85 hover:bg-white/10 hover:text-white'
   }`
 
@@ -44,10 +44,10 @@ export default function Sidebar() {
     <aside
       className={`flex flex-col shrink-0 text-white transition-all duration-200 ${
         collapsed ? 'w-[68px]' : 'w-64'
-      } m-3 h-[calc(100vh-1.5rem)] sticky top-3 rounded-2xl border border-white/20 shadow-2xl backdrop-blur-xl bg-gradient-to-b from-indigo-700/85 via-violet-700/80 to-fuchsia-800/80`}
+      } m-3 h-[calc(100vh-1.5rem)] sticky top-3 rounded-2xl border border-white/20 shadow-2xl backdrop-blur-xl bg-gradient-to-b from-sky-800/90 via-cyan-800/85 to-teal-800/90`}
     >
       <div className="flex items-center gap-2 px-4 h-16 border-b border-white/15">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gold-400 to-gold flex items-center justify-center text-navy-900 shrink-0 shadow-md shadow-black/30">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-300 to-cyan-400 flex items-center justify-center text-sky-950 shrink-0 shadow-md shadow-black/30">
           <Truck size={18} />
         </div>
         {!collapsed && (
