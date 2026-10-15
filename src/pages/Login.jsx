@@ -4,8 +4,6 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import TransportBackground from '../components/TransportBackground'
 
-const INTRO_SEEN_KEY = 'dc_intro_seen'
-
 export default function Login() {
   const { signIn, signUp, resetPassword } = useAuth()
   const toast = useToast()
@@ -16,28 +14,15 @@ export default function Login() {
   const [remember, setRemember] = useState(true)
   const [loading, setLoading] = useState(false)
 
-  // Play the opening animation once per browser tab/session, not on every
-  // re-render (e.g. switching between Sign In / Sign Up / Forgot Password).
-  const [showIntro, setShowIntro] = useState(() => {
-    try {
-      return !sessionStorage.getItem(INTRO_SEEN_KEY)
-    } catch {
-      return true
-    }
-  })
+  // Play the opening animation every time the page loads or is refreshed
+  // (it does not replay when switching between Sign In / Sign Up / Forgot Password).
+  const [showIntro, setShowIntro] = useState(true)
   const [introLeaving, setIntroLeaving] = useState(false)
 
   useEffect(() => {
     if (!showIntro) return
     const leaveTimer = setTimeout(() => setIntroLeaving(true), 3000)
-    const hideTimer = setTimeout(() => {
-      setShowIntro(false)
-      try {
-        sessionStorage.setItem(INTRO_SEEN_KEY, '1')
-      } catch {
-        /* ignore - sessionStorage may be unavailable */
-      }
-    }, 3400)
+    const hideTimer = setTimeout(() => setShowIntro(false), 3400)
     return () => {
       clearTimeout(leaveTimer)
       clearTimeout(hideTimer)
@@ -161,7 +146,7 @@ export default function Login() {
   )
 }
 
-// Opening screen shown once per browser tab before the sign-in form appears.
+// Opening screen shown on every page load / refresh before the sign-in form appears.
 // The watercolor-blob background shows immediately; the quote text then
 // animates in on top of it, word by word.
 function IntroSplash({ leaving }) {
