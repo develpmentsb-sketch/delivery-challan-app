@@ -1,7 +1,9 @@
-import React, { useState } from 'react'
-import { Mail, Lock, Loader2, Shield } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { Mail, Lock, Loader2, Shield, Truck } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
+
+const INTRO_SEEN_KEY = 'dc_intro_seen'
 
 export default function Login() {
   const { signIn, signUp, signInWithOAuth, resetPassword } = useAuth()
@@ -13,6 +15,34 @@ export default function Login() {
   const [remember, setRemember] = useState(true)
   const [loading, setLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState(false)
+
+  // Play the opening animation once per browser tab/session, not on every
+  // re-render (e.g. switching between Sign In / Sign Up / Forgot Password).
+  const [showIntro, setShowIntro] = useState(() => {
+    try {
+      return !sessionStorage.getItem(INTRO_SEEN_KEY)
+    } catch {
+      return true
+    }
+  })
+  const [introLeaving, setIntroLeaving] = useState(false)
+
+  useEffect(() => {
+    if (!showIntro) return
+    const leaveTimer = setTimeout(() => setIntroLeaving(true), 1900)
+    const hideTimer = setTimeout(() => {
+      setShowIntro(false)
+      try {
+        sessionStorage.setItem(INTRO_SEEN_KEY, '1')
+      } catch {
+        /* ignore - sessionStorage may be unavailable */
+      }
+    }, 2300)
+    return () => {
+      clearTimeout(leaveTimer)
+      clearTimeout(hideTimer)
+    }
+  }, [showIntro])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -46,8 +76,12 @@ export default function Login() {
     }
   }
 
+  if (showIntro) {
+    return <IntroSplash leaving={introLeaving} />
+  }
+
   return (
-    <div className="relative min-h-screen flex items-center overflow-hidden bg-navy-900 px-4 md:px-[8%] py-4">
+    <div className="relative min-h-screen flex items-center overflow-hidden bg-navy-900 px-4 md:px-[8%] py-4 animate-page-fade-in">
       <SecurityBackdrop />
       <div className="relative z-10 w-full max-w-3xl rounded-[2rem] bg-cream-100 shadow-2xl overflow-hidden flex flex-col md:flex-row">
         {/* Left: welcome / brand panel */}
@@ -162,6 +196,34 @@ export default function Login() {
               </>
             )}
           </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Short animated opening screen, shown once per browser tab before the
+// sign-in form appears - a logo pop-in, app name, and a loading bar.
+function IntroSplash({ leaving }) {
+  return (
+    <div
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-navy-900 ${
+        leaving ? 'animate-intro-fade-out' : ''
+      }`}
+    >
+      <div className="relative flex flex-col items-center">
+        <div className="relative animate-intro-logo">
+          <div className="absolute inset-0 rounded-2xl bg-gold-400/30 blur-2xl" />
+          <div className="relative w-16 h-16 rounded-2xl bg-gold flex items-center justify-center text-navy-900 shadow-xl">
+            <Truck size={30} />
+          </div>
+        </div>
+        <h1 className="animate-intro-text mt-5 text-xl font-bold text-white tracking-wide text-center">
+          Delivery Challan &amp; E-Way Bill
+        </h1>
+        <p className="animate-intro-text mt-1 text-xs text-white/50 tracking-[0.2em] uppercase">Loading your dashboard</p>
+        <div className="animate-intro-text mt-6 w-40 h-1 rounded-full bg-white/10 overflow-hidden">
+          <div className="h-full bg-gold rounded-full animate-intro-bar" />
         </div>
       </div>
     </div>
