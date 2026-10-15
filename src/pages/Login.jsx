@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Mail, Lock, Loader2, Truck } from 'lucide-react'
+import { Mail, Lock, Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 
@@ -29,7 +29,7 @@ export default function Login() {
 
   useEffect(() => {
     if (!showIntro) return
-    const leaveTimer = setTimeout(() => setIntroLeaving(true), 1900)
+    const leaveTimer = setTimeout(() => setIntroLeaving(true), 3000)
     const hideTimer = setTimeout(() => {
       setShowIntro(false)
       try {
@@ -37,7 +37,7 @@ export default function Login() {
       } catch {
         /* ignore - sessionStorage may be unavailable */
       }
-    }, 2300)
+    }, 3400)
     return () => {
       clearTimeout(leaveTimer)
       clearTimeout(hideTimer)
@@ -202,29 +202,47 @@ export default function Login() {
   )
 }
 
-// Short animated opening screen, shown once per browser tab before the
-// sign-in form appears - a logo pop-in, app name, and a loading bar.
+// Opening screen shown once per browser tab before the sign-in form appears.
+// The watercolor-blob background shows immediately; the quote text then
+// animates in on top of it, word by word.
 function IntroSplash({ leaving }) {
   return (
     <div
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-navy-900 ${
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden bg-cream-100 ${
         leaving ? 'animate-intro-fade-out' : ''
       }`}
     >
-      <div className="relative flex flex-col items-center">
-        <div className="relative animate-intro-logo">
-          <div className="absolute inset-0 rounded-2xl bg-gold-400/30 blur-2xl" />
-          <div className="relative w-16 h-16 rounded-2xl bg-gold flex items-center justify-center text-navy-900 shadow-xl">
-            <Truck size={30} />
-          </div>
-        </div>
-        <h1 className="animate-intro-text mt-5 text-xl font-bold text-white tracking-wide text-center">
-          Delivery Challan &amp; E-Way Bill
-        </h1>
-        <p className="animate-intro-text mt-1 text-xs text-white/50 tracking-[0.2em] uppercase">Loading your dashboard</p>
-        <div className="animate-intro-text mt-6 w-40 h-1 rounded-full bg-white/10 overflow-hidden">
-          <div className="h-full bg-gold rounded-full animate-intro-bar" />
-        </div>
+      {/* background blobs - visible immediately, no animation delay */}
+      <div className="absolute inset-0">
+        <div className="absolute top-[10%] left-[18%] w-64 h-64 rounded-full bg-sky-300/60 blur-3xl" />
+        <div className="absolute bottom-[15%] left-[10%] w-56 h-56 rounded-full bg-pink-200/60 blur-3xl" />
+        <div className="absolute bottom-[8%] right-[14%] w-72 h-72 rounded-full bg-teal-200/60 blur-3xl" />
+        <div className="absolute top-[14%] right-[16%] w-48 h-48 rounded-full bg-sky-200/50 blur-3xl" />
+      </div>
+
+      {/* quote text - animates in after the background is already visible */}
+      <div className="relative text-center leading-tight">
+        <p className="text-sm tracking-[0.3em] text-navy-500 font-semibold animate-intro-text" style={{ animationDelay: '0.3s' }}>
+          IF YOU
+        </p>
+        <p
+          className="font-['Dancing_Script'] text-7xl md:text-8xl font-bold text-navy-800 -mt-1 animate-intro-text"
+          style={{ animationDelay: '0.7s' }}
+        >
+          Believe
+        </p>
+        <p className="text-base tracking-[0.3em] text-navy-500 font-semibold -mt-2 animate-intro-text" style={{ animationDelay: '1.2s' }}>
+          IN YOURSELF
+        </p>
+        <p
+          className="font-['Dancing_Script'] text-6xl md:text-7xl font-bold text-navy-800 mt-2 animate-intro-text"
+          style={{ animationDelay: '1.6s' }}
+        >
+          Anything
+        </p>
+        <p className="text-base tracking-[0.3em] text-navy-500 font-semibold -mt-1 animate-intro-text" style={{ animationDelay: '2.1s' }}>
+          IS POSSIBLE
+        </p>
       </div>
     </div>
   )
