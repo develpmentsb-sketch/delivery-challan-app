@@ -71,12 +71,12 @@ export default function Dashboard() {
   }, [recent])
 
   const cards = [
-    { label: 'Total Delivery Challans', value: stats ? stats.total : '–', icon: FileText, grad: 'from-blue-600 to-blue-800', glow: 'shadow-blue-700/30' },
-    { label: "Today's Challans", value: stats ? stats.today : '–', icon: CalendarClock, grad: 'from-sky-500 to-blue-600', glow: 'shadow-sky-600/30' },
-    { label: "This Month's Challans", value: stats ? stats.thisMonth : '–', icon: CalendarRange, grad: 'from-cyan-500 to-teal-600', glow: 'shadow-teal-600/30' },
-    { label: 'E-Way Bills Generated', value: stats ? stats.ewayGenerated : '–', icon: FileCheck2, grad: 'from-teal-500 to-emerald-600', glow: 'shadow-emerald-600/30' },
-    { label: 'Pending E-Way Bills', value: stats ? stats.ewayPending : '–', icon: FileClock, grad: 'from-amber-500 to-amber-600', glow: 'shadow-amber-600/30' },
-    { label: 'Cancelled Challans', value: stats ? stats.cancelled : '–', icon: FileX2, grad: 'from-rose-500 to-rose-700', glow: 'shadow-rose-600/30' }
+    { label: 'Total Delivery Challans', value: stats ? stats.total : '–', icon: FileText },
+    { label: "Today's Challans", value: stats ? stats.today : '–', icon: CalendarClock },
+    { label: "This Month's Challans", value: stats ? stats.thisMonth : '–', icon: CalendarRange },
+    { label: 'E-Way Bills Generated', value: stats ? stats.ewayGenerated : '–', icon: FileCheck2 },
+    { label: 'Pending E-Way Bills', value: stats ? stats.ewayPending : '–', icon: FileClock },
+    { label: 'Cancelled Challans', value: stats ? stats.cancelled : '–', icon: FileX2 }
   ]
 
   return (
@@ -95,15 +95,13 @@ export default function Dashboard() {
         {cards.map((c) => (
           <div
             key={c.label}
-            className={`relative overflow-hidden rounded-2xl p-4 text-white bg-gradient-to-br shadow-lg ${c.grad} ${c.glow} transition-all duration-200 hover:-translate-y-1 hover:shadow-xl`}
+            className="card p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl"
           >
-            <div className="pointer-events-none absolute -right-5 -top-5 h-20 w-20 rounded-full bg-white/15" />
-            <div className="pointer-events-none absolute -bottom-8 -right-2 h-16 w-16 rounded-full bg-white/10" />
-            <div className="relative w-10 h-10 rounded-xl bg-white/25 flex items-center justify-center mb-3">
+            <div className="w-10 h-10 rounded-xl bg-navy-50 text-navy flex items-center justify-center mb-3">
               <c.icon size={18} />
             </div>
-            <p className={`relative text-3xl font-bold ${stats ? '' : 'animate-pulse opacity-60'}`}>{c.value}</p>
-            <p className="relative text-xs text-white/90 mt-1 leading-snug">{c.label}</p>
+            <p className={`text-3xl font-bold text-navy ${stats ? '' : 'animate-pulse opacity-40'}`}>{c.value}</p>
+            <p className="text-xs text-navy-400 mt-1 leading-snug">{c.label}</p>
           </div>
         ))}
       </div>
