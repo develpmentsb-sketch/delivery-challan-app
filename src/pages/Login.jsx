@@ -21,8 +21,8 @@ export default function Login() {
 
   useEffect(() => {
     if (!showIntro) return
-    const leaveTimer = setTimeout(() => setIntroLeaving(true), 3000)
-    const hideTimer = setTimeout(() => setShowIntro(false), 3400)
+    const leaveTimer = setTimeout(() => setIntroLeaving(true), 3900)
+    const hideTimer = setTimeout(() => setShowIntro(false), 4300)
     return () => {
       clearTimeout(leaveTimer)
       clearTimeout(hideTimer)
@@ -147,8 +147,8 @@ export default function Login() {
 }
 
 // Opening screen shown on every page load / refresh before the sign-in form appears.
-// The watercolor-blob background shows immediately; the quote text then
-// animates in on top of it, word by word.
+// Step 1: the watercolor background colours fade in on their own.
+// Step 2: once they are in place, the quote text animates in, line by line.
 function IntroSplash({ leaving }) {
   return (
     <div
@@ -156,35 +156,35 @@ function IntroSplash({ leaving }) {
         leaving ? 'animate-intro-fade-out' : ''
       }`}
     >
-      {/* background blobs - visible immediately, no animation delay */}
-      <div className="absolute inset-0">
+      {/* Step 1 - background colours fade in first (0 - 0.9s) */}
+      <div className="absolute inset-0 animate-page-fade-in" style={{ animationDuration: '0.9s' }}>
         <div className="absolute top-[10%] left-[18%] w-64 h-64 rounded-full bg-sky-300/60 blur-3xl" />
         <div className="absolute bottom-[15%] left-[10%] w-56 h-56 rounded-full bg-pink-200/60 blur-3xl" />
         <div className="absolute bottom-[8%] right-[14%] w-72 h-72 rounded-full bg-teal-200/60 blur-3xl" />
         <div className="absolute top-[14%] right-[16%] w-48 h-48 rounded-full bg-sky-200/50 blur-3xl" />
       </div>
 
-      {/* quote text - animates in after the background is already visible */}
+      {/* Step 2 - quote text starts only after the background is in place */}
       <div className="relative text-center leading-tight">
-        <p className="text-sm tracking-[0.3em] text-navy-500 font-semibold animate-intro-text" style={{ animationDelay: '0.3s' }}>
+        <p className="text-sm tracking-[0.3em] text-navy-500 font-semibold animate-intro-text" style={{ animationDelay: '1.2s' }}>
           IF YOU
         </p>
         <p
           className="font-['Dancing_Script'] text-7xl md:text-8xl font-bold text-navy-800 -mt-1 animate-intro-text"
-          style={{ animationDelay: '0.7s' }}
+          style={{ animationDelay: '1.6s' }}
         >
           Believe
         </p>
-        <p className="text-base tracking-[0.3em] text-navy-500 font-semibold -mt-2 animate-intro-text" style={{ animationDelay: '1.2s' }}>
+        <p className="text-base tracking-[0.3em] text-navy-500 font-semibold -mt-2 animate-intro-text" style={{ animationDelay: '2.1s' }}>
           IN YOURSELF
         </p>
         <p
           className="font-['Dancing_Script'] text-6xl md:text-7xl font-bold text-navy-800 mt-2 animate-intro-text"
-          style={{ animationDelay: '1.6s' }}
+          style={{ animationDelay: '2.5s' }}
         >
           Anything
         </p>
-        <p className="text-base tracking-[0.3em] text-navy-500 font-semibold -mt-1 animate-intro-text" style={{ animationDelay: '2.1s' }}>
+        <p className="text-base tracking-[0.3em] text-navy-500 font-semibold -mt-1 animate-intro-text" style={{ animationDelay: '3s' }}>
           IS POSSIBLE
         </p>
       </div>
