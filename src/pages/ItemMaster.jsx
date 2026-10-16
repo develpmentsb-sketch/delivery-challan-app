@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Search, Pencil, Trash2, FileSpreadsheet, Upload, X, Save, Loader2, AlertTriangle } from 'lucide-react'
 import Header from '../components/Header'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -13,54 +13,81 @@ import { useToast } from '../context/ToastContext'
 
 const PAGE_SIZE = 10
 
-// Common HSN / SAC codes shown in the HSN/SAC dropdown. "Other" lets you type any code.
-const HSN_OPTIONS = [
-  ['8501', 'Electric motors & generators'],
-  ['8503', 'Parts of motors & generators'],
-  ['8504', 'Transformers, chokes, power supplies'],
-  ['8507', 'Batteries'],
-  ['8413', 'Pumps'],
-  ['8414', 'Fans, compressors, blowers'],
-  ['8481', 'Valves & taps'],
-  ['8482', 'Ball / roller bearings'],
-  ['8536', 'Switches, plugs, sockets, connectors'],
-  ['8537', 'Control panels & switchboards'],
-  ['8538', 'Parts for switchgear'],
-  ['8539', 'Electric lamps & LED'],
-  ['8544', 'Wires & cables'],
-  ['9405', 'Lighting fittings'],
-  ['7318', 'Screws, bolts, nuts'],
-  ['3917', 'Plastic pipes & fittings'],
-  ['3926', 'Other plastic articles'],
-  ['7326', 'Other iron / steel articles'],
-  ['8205', 'Hand tools'],
-  ['9987', 'SAC - Maintenance & repair service'],
-  ['9988', 'SAC - Manufacturing / job work service'],
-  ['9983', 'SAC - Other professional services'],
-  ['9965', 'SAC - Goods transport service']
-]
+// HSN / SAC master (from HSN_SAC.xlsx). Loaded on first use so it doesn't slow the app start.
+let hsnPromise = null
+function loadHsn() {
+  if (!hsnPromise) hsnPromise = import('../data/hsnSac.json').then((m) => m.default || m)
+  return hsnPromise
+}
 
+// Type a code or a word (e.g. "8501" or "motor") and pick from the matching HSN / SAC list.
 function HsnField({ value, onChange, disabled }) {
-  const known = HSN_OPTIONS.some(([c]) => c === value)
-  const [custom, setCustom] = useState(false)
-  const showInput = custom || (value && !known)
+  const [data, setData] = useState(null)
+  const [open, setOpen] = useState(false)
+  const boxRef = useRef(null)
+
+  useEffect(() => {
+    let alive = true
+    loadHsn().then((d) => { if (alive) setData(d) })
+    return () => { alive = false }
+  }, [])
+
+  useEffect(() => {
+    const close = (e) => { if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [])
+
+  const q = (value || '').trim().toLowerCase()
+  const matches = useMemo(() => {
+    if (!data || !q) return []
+    const words = q.split(/\s+/)
+    const starts = []
+    const others = []
+    for (const row of data) {
+      const code = row[0]
+      if (code.startsWith(q)) { starts.push(row); if (starts.length >= 40) break }
+      else if (others.length < 40) {
+        const text = (code + ' ' + row[1]).toLowerCase()
+        if (words.every((w) => text.includes(w))) others.push(row)
+      }
+    }
+    return [...starts, ...others].slice(0, 40)
+  }, [data, q])
+
+  const exact = data && value ? data.find((r) => r[0] === String(value).trim()) : null
+
   return (
-    <div className="space-y-1.5">
-      <select
+    <div className="relative" ref={boxRef}>
+      <input
         className="input"
+        placeholder="Type HSN/SAC code or name"
         disabled={disabled}
-        value={showInput ? '__other' : value || ''}
-        onChange={(e) => {
-          if (e.target.value === '__other') { setCustom(true); onChange('') }
-          else { setCustom(false); onChange(e.target.value) }
-        }}
-      >
-        <option value="">Select HSN/SAC</option>
-        {HSN_OPTIONS.map(([c, d]) => <option key={c} value={c}>{c} - {d}</option>)}
-        <option value="__other">Other (type code)</option>
-      </select>
-      {showInput && (
-        <input className="input" placeholder="Type HSN/SAC code" disabled={disabled} value={value || ''} onChange={(e) => onChange(e.target.value)} />
+        value={value || ''}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => { onChange(e.target.value); setOpen(true) }}
+      />
+      {exact && <p className="mt-1 text-[11px] leading-snug text-navy-400">{exact[1]}</p>}
+      {open && !disabled && q && (
+        <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-auto rounded-md border border-navy-200 bg-white shadow-lg">
+          {!data ? (
+            <p className="px-3 py-2 text-xs text-navy-400">Loading HSN / SAC list...</p>
+          ) : matches.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-navy-400">No match. The code you typed will be saved as it is.</p>
+          ) : (
+            matches.map(([c, d]) => (
+              <button
+                type="button"
+                key={c}
+                onMouseDown={(e) => { e.preventDefault(); onChange(c); setOpen(false) }}
+                className="block w-full px-3 py-1.5 text-left text-sm hover:bg-navy-50"
+              >
+                <span className="font-semibold text-navy">{c}</span>
+                <span className="ml-2 text-xs text-navy-500">{d.length > 90 ? d.slice(0, 90) + '...' : d}</span>
+              </button>
+            ))
+          )}
+        </div>
       )}
     </div>
   )
