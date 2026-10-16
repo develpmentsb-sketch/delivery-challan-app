@@ -67,12 +67,14 @@ export default function Dashboard() {
 
   return (
     <div>
+      {/* Greeting banner and number cards side by side */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-stretch">
       {/* Hero */}
-      <div className="relative overflow-hidden rounded-3xl px-6 pb-5 pt-5 text-white lg:px-8 lg:pb-6 lg:pt-6">
+      <div className="relative flex flex-1 items-center overflow-hidden rounded-3xl px-6 py-5 text-white md:min-w-0 lg:px-8">
         <img src={heroImg} alt="" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-r from-sky-900/90 via-cyan-800/80 to-teal-700/70" />
         <Truck size={120} className="pointer-events-none absolute -bottom-4 -right-3 text-white/10" />
-        <div className="relative flex flex-wrap items-end justify-between gap-6">
+        <div className="relative flex w-full flex-wrap items-center justify-between gap-6">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-widest text-white/70">{dateText}</p>
             <h1 className="mt-1 text-xl font-bold text-white">
@@ -97,19 +99,21 @@ export default function Dashboard() {
       </div>
 
       {/* Number cards: small cards, 3 per row (2 rows), on the right side */}
-      <div className="relative z-10 mt-3 ml-auto mr-3 grid w-full max-w-[22rem] grid-cols-3 gap-2 lg:mr-6">
+      <div className="relative z-10 grid w-full shrink-0 grid-cols-3 gap-3 md:w-[23rem]">
         {cards.map((c) => (
           <div
             key={c.label}
-            className="rounded-xl border border-white bg-white p-2.5 shadow-lg shadow-slate-900/5 transition-transform duration-200 hover:-translate-y-0.5"
+            className="rounded-2xl border border-white bg-white p-3.5 shadow-lg shadow-slate-900/5 transition-transform duration-200 hover:-translate-y-0.5"
           >
-            <div className={`flex h-8 w-8 items-center justify-center rounded-full ${c.tone}`}>
-              <c.icon size={15} />
+            <div className={`flex h-10 w-10 items-center justify-center rounded-full ${c.tone}`}>
+              <c.icon size={18} />
             </div>
-            <p className={`mt-2 text-xl font-bold text-navy ${stats ? '' : 'animate-pulse opacity-40'}`}>{c.value}</p>
-            <p className="mt-0.5 text-[10px] leading-tight text-navy-400">{c.label}</p>
+            <p className={`mt-2 text-2xl font-bold text-navy ${stats ? '' : 'animate-pulse opacity-40'}`}>{c.value}</p>
+            <p className="mt-0.5 text-[11px] leading-tight text-navy-400">{c.label}</p>
           </div>
         ))}
+      </div>
+
       </div>
 
       {/* Recent challans */}
