@@ -13,6 +13,59 @@ import { useToast } from '../context/ToastContext'
 
 const PAGE_SIZE = 10
 
+// Common HSN / SAC codes shown in the HSN/SAC dropdown. "Other" lets you type any code.
+const HSN_OPTIONS = [
+  ['8501', 'Electric motors & generators'],
+  ['8503', 'Parts of motors & generators'],
+  ['8504', 'Transformers, chokes, power supplies'],
+  ['8507', 'Batteries'],
+  ['8413', 'Pumps'],
+  ['8414', 'Fans, compressors, blowers'],
+  ['8481', 'Valves & taps'],
+  ['8482', 'Ball / roller bearings'],
+  ['8536', 'Switches, plugs, sockets, connectors'],
+  ['8537', 'Control panels & switchboards'],
+  ['8538', 'Parts for switchgear'],
+  ['8539', 'Electric lamps & LED'],
+  ['8544', 'Wires & cables'],
+  ['9405', 'Lighting fittings'],
+  ['7318', 'Screws, bolts, nuts'],
+  ['3917', 'Plastic pipes & fittings'],
+  ['3926', 'Other plastic articles'],
+  ['7326', 'Other iron / steel articles'],
+  ['8205', 'Hand tools'],
+  ['9987', 'SAC - Maintenance & repair service'],
+  ['9988', 'SAC - Manufacturing / job work service'],
+  ['9983', 'SAC - Other professional services'],
+  ['9965', 'SAC - Goods transport service']
+]
+
+function HsnField({ value, onChange, disabled }) {
+  const known = HSN_OPTIONS.some(([c]) => c === value)
+  const [custom, setCustom] = useState(false)
+  const showInput = custom || (value && !known)
+  return (
+    <div className="space-y-1.5">
+      <select
+        className="input"
+        disabled={disabled}
+        value={showInput ? '__other' : value || ''}
+        onChange={(e) => {
+          if (e.target.value === '__other') { setCustom(true); onChange('') }
+          else { setCustom(false); onChange(e.target.value) }
+        }}
+      >
+        <option value="">Select HSN/SAC</option>
+        {HSN_OPTIONS.map(([c, d]) => <option key={c} value={c}>{c} - {d}</option>)}
+        <option value="__other">Other (type code)</option>
+      </select>
+      {showInput && (
+        <input className="input" placeholder="Type HSN/SAC code" disabled={disabled} value={value || ''} onChange={(e) => onChange(e.target.value)} />
+      )}
+    </div>
+  )
+}
+
 const emptyItem = () => ({
   item_code: '', item_name: '', description: '', hsn: '', uom: 'NOS', gst_rate: 0,
   unit_price: 0, opening_quantity: 0, current_quantity: 0, reorder_level: 0, active: true,
@@ -425,7 +478,7 @@ export default function ItemMaster() {
                 {tab === 'general' && (
                   <>
                     <Row label="Brand"><input className="input" placeholder="e.g. Crompton" {...bind('brand')} /></Row>
-                    <Row label="HSN/SAC"><input className="input" {...bind('hsn')} /></Row>
+                    <Row label="HSN/SAC"><HsnField value={form.hsn} disabled={viewOnly} onChange={(v) => setForm((f) => ({ ...f, hsn: v }))} /></Row>
                     <Row label="GST %">
                       <select
                         className="input"
