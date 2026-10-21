@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Mail, Lock, Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -29,6 +29,25 @@ export default function Login() {
     }
   }, [showIntro])
 
+  // Card follows the mouse: it tilts in 3D toward the cursor and shifts slightly.
+  const cardRef = useRef(null)
+  const handleMouseMove = (e) => {
+    const el = cardRef.current
+    if (!el || e.pointerType === 'touch') return
+    const r = el.getBoundingClientRect()
+    const dx = (e.clientX - (r.left + r.width / 2)) / window.innerWidth  // -0.5 .. 0.5
+    const dy = (e.clientY - (r.top + r.height / 2)) / window.innerHeight
+    const clamp = (v, m) => Math.max(-m, Math.min(m, v))
+    const rx = clamp(-dy * 22, 9)
+    const ry = clamp(dx * 22, 9)
+    const tx = clamp(dx * 40, 14)
+    const ty = clamp(dy * 40, 14)
+    el.style.transform = `perspective(1000px) translate3d(${tx}px, ${ty}px, 0) rotateX(${rx}deg) rotateY(${ry}deg)`
+  }
+  const handleMouseLeave = () => {
+    if (cardRef.current) cardRef.current.style.transform = 'perspective(1000px) translate3d(0,0,0) rotateX(0deg) rotateY(0deg)'
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -58,12 +77,12 @@ export default function Login() {
     'input pl-9 !bg-white/15 !text-white !border-white/30 placeholder:!text-white/70 focus:!border-gold-400'
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-8 md:justify-start md:px-0 md:pl-[8vw] lg:pl-[10vw] animate-page-fade-in">
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-8 md:justify-start md:px-0 md:pl-[8vw] lg:pl-[10vw] animate-page-fade-in" onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
       {/* Full-screen animated transport background */}
       <TransportBackground />
 
       {/* Transparent (glass) sign-in card */}
-      <div className="relative z-10 w-full max-w-md rounded-3xl border border-white/25 bg-[rgba(15,26,53,0.35)] backdrop-blur-xl shadow-2xl px-8 py-9 sm:px-10">
+      <div ref={cardRef} style={{ transition: 'transform 0.18s ease-out', willChange: 'transform' }} className="relative z-10 w-full max-w-md rounded-3xl border border-white/25 bg-[rgba(15,26,53,0.35)] backdrop-blur-xl shadow-2xl px-8 py-9 sm:px-10">
         <p className="text-gold-400 font-semibold text-[11px] tracking-[0.18em] mb-2">DELIVERY CHALLAN &amp; E-WAY BILL</p>
         <h1 className="text-3xl font-bold text-white mb-1">
           {mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Sign Up' : 'Reset Password'}
