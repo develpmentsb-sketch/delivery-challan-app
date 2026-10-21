@@ -7,7 +7,11 @@ import TransportBackground from '../components/TransportBackground'
 import DraggablePanel from '../components/DraggablePanel'
 import PanelControls from '../components/PanelControls'
 import usePanelLayout from '../hooks/usePanelLayout'
-import { fetchLoginLayout, saveLoginLayout, readCachedLoginLayout } from '../services/appSettings'
+import {
+  fetchLoginLayout, saveLoginLayout, readCachedLoginLayout,
+  fetchLoginText, saveLoginText, readCachedLoginText, DEFAULT_LOGIN_TEXT
+} from '../services/appSettings'
+import EditableText from '../components/EditableText'
 
 const PANEL_MIN = { w: 300, h: 340 }
 
@@ -60,6 +64,34 @@ export default function Login() {
     fetchLoginLayout().then((v) => { if (alive && v) setSavedLayout(v) })
     return () => { alive = false }
   }, [])
+
+  // Sign-In panel wording (admin can edit it in place; everyone else just sees it).
+  const [texts, setTexts] = useState(() => readCachedLoginText() || DEFAULT_LOGIN_TEXT)
+  const textsDirty = useRef(false)
+  useEffect(() => {
+    let alive = true
+    fetchLoginText().then((v) => { if (alive && v && !textsDirty.current) setTexts(v) })
+    return () => { alive = false }
+  }, [])
+  const changeText = (key, value) => {
+    textsDirty.current = true
+    setTexts((t) => ({ ...t, [key]: value }))
+  }
+  useEffect(() => {
+    if (!adminEditing || !textsDirty.current) return undefined
+    const t = setTimeout(async () => {
+      setSaveState('saving')
+      try {
+        await saveLoginText(texts)
+        setSaveState('saved')
+      } catch (err) {
+        setSaveState('error')
+        toast.error(err.message || 'Could not save the text')
+      }
+    }, 800)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [texts, adminEditing])
 
   const persistLayout = async (value) => {
     setSaveState('saving')
@@ -129,15 +161,30 @@ export default function Login() {
 
       {/* Transparent (glass) sign-in card. Admin-only: drag / resize it (open /login?layout=edit) */}
       <DraggablePanel layout={layout} editMode={canEditLayout && editMode} locked={!canEditLayout}>
-        <p className="text-gold-400 font-semibold text-[11px] tracking-[0.18em] mb-2">DELIVERY CHALLAN &amp; E-WAY BILL</p>
-        <h1 className="text-3xl font-bold text-white mb-1">
-          {mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Sign Up' : 'Reset Password'}
-        </h1>
-        <p className="text-sm text-white/75 mb-7">
-          {mode === 'signin' && 'Enter your details to access your dashboard.'}
-          {mode === 'signup' && 'Create an account to get started.'}
-          {mode === 'forgot' && "Enter your email and we'll send a reset link."}
-        </p>
+        <EditableText
+          value={mode === 'signin' ? texts.eyebrow : DEFAULT_LOGIN_TEXT.eyebrow}
+          onChange={(v) => changeText('eyebrow', v)}
+          editable={canEditLayout && mode === 'signin'}
+          className="text-gold-400 font-semibold text-[11px] tracking-[0.18em] mb-2"
+        />
+        <EditableText
+          as="h1"
+          value={mode === 'signin' ? texts.title : mode === 'signup' ? 'Sign Up' : 'Reset Password'}
+          onChange={(v) => changeText('title', v)}
+          editable={canEditLayout && mode === 'signin'}
+          className="text-3xl font-bold text-white mb-1"
+        />
+        <EditableText
+          value={
+            mode === 'signin' ? texts.subtitle
+              : mode === 'signup' ? 'Create an account to get started.'
+              : "Enter your email and we'll send a reset link."
+          }
+          onChange={(v) => changeText('subtitle', v)}
+          editable={canEditLayout && mode === 'signin'}
+          multiline
+          className="text-sm text-white/75 mb-7"
+        />
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="relative">

@@ -41,3 +41,45 @@ export async function saveLoginLayout(value) {
   if (error) throw error
   cache(value)
 }
+
+// ---- Sign-In panel texts (small heading, title, subtitle) ------------------------------------
+// Shape: { eyebrow, title, subtitle }. Stored in the same table; only an admin can change it.
+
+const TEXT_KEY = 'login_panel_text'
+const TEXT_CACHE = 'dc-login-text-cache'
+
+export const DEFAULT_LOGIN_TEXT = {
+  eyebrow: 'DELIVERY CHALLAN & E-WAY BILL',
+  title: 'Sign In',
+  subtitle: 'Enter your details to access your dashboard.'
+}
+
+const validText = (v) => v && typeof v === 'object' && ['eyebrow', 'title', 'subtitle'].every((k) => typeof v[k] === 'string')
+
+export function readCachedLoginText() {
+  try {
+    const v = JSON.parse(localStorage.getItem(TEXT_CACHE) || 'null')
+    return validText(v) ? { ...DEFAULT_LOGIN_TEXT, ...v } : null
+  } catch {
+    return null
+  }
+}
+
+export async function fetchLoginText() {
+  try {
+    const { data, error } = await supabase.from('app_settings').select('value').eq('key', TEXT_KEY).maybeSingle()
+    if (error || !validText(data?.value)) return null
+    try { localStorage.setItem(TEXT_CACHE, JSON.stringify(data.value)) } catch { /* ignore */ }
+    return { ...DEFAULT_LOGIN_TEXT, ...data.value }
+  } catch {
+    return null
+  }
+}
+
+export async function saveLoginText(value) {
+  const { error } = await supabase
+    .from('app_settings')
+    .upsert({ key: TEXT_KEY, value, updated_at: new Date().toISOString() })
+  if (error) throw error
+  try { localStorage.setItem(TEXT_CACHE, JSON.stringify(value)) } catch { /* ignore */ }
+}

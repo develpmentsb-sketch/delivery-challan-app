@@ -72,7 +72,7 @@ export default function PanelControls({ layout, editMode, onToggle, saveState })
             {saveState === 'saving' && 'Saving for everyone...'}
             {saveState === 'saved' && 'Saved. Everyone now sees this layout.'}
             {saveState === 'error' && 'Could not save. Run supabase/add_app_settings.sql first.'}
-            {!saveState && 'Admin only. Drag the panel, then it saves for everyone.'}
+            {!saveState && 'Admin only. Drag the panel, or click the dashed text on it to edit the wording. Saves for everyone.'}
           </p>
         </div>
       )}
