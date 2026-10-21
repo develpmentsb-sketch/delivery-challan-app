@@ -3,6 +3,21 @@ import { Mail, Lock, Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import TransportBackground from '../components/TransportBackground'
+import DraggablePanel from '../components/DraggablePanel'
+import PanelControls from '../components/PanelControls'
+import usePanelLayout from '../hooks/usePanelLayout'
+
+const PANEL_MIN = { w: 300, h: 340 }
+
+// Where the sign-in panel starts the first time (or after "Reset"): left side on wide screens,
+// centred on phones / tablets.
+function defaultPanelRect(b) {
+  const w = Math.min(448, b.w - 24)
+  const h = Math.min(480, b.h - 24)
+  const x = b.w >= 768 ? Math.round(b.w * 0.09) : Math.round((b.w - w) / 2)
+  const y = Math.round((b.h - h) / 2)
+  return { x, y, w, h }
+}
 
 export default function Login() {
   const { signIn, signUp, resetPassword } = useAuth()
@@ -29,29 +44,23 @@ export default function Login() {
     }
   }, [showIntro])
 
-  // Card follows the mouse: it slides left / right / up / down and tilts toward the cursor.
-  const cardRef = useRef(null)
+  // Draggable / resizable sign-in panel
+  const containerRef = useRef(null)
+  const [editMode, setEditMode] = useState(false)
+  const layout = usePanelLayout({
+    containerRef,
+    enabled: !showIntro,
+    storageKey: 'dc-login-panel-layout-v1',
+    getDefault: defaultPanelRect,
+    min: PANEL_MIN
+  })
+
   useEffect(() => {
-    if (showIntro) return
-    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const onMove = (e) => {
-      const el = cardRef.current
-      if (!el) return
-      const nx = (e.clientX / window.innerWidth - 0.5) * 2   // -1 (left) .. 1 (right)
-      const ny = (e.clientY / window.innerHeight - 0.5) * 2  // -1 (top) .. 1 (bottom)
-      el.style.transform =
-        `perspective(900px) translate3d(${nx * 70}px, ${ny * 45}px, 0) rotateX(${-ny * 10}deg) rotateY(${nx * 14}deg)`
-    }
-    const onLeave = () => {
-      if (cardRef.current) cardRef.current.style.transform = 'perspective(900px) translate3d(0,0,0) rotateX(0deg) rotateY(0deg)'
-    }
-    window.addEventListener('mousemove', onMove)
-    document.documentElement.addEventListener('mouseleave', onLeave)
-    return () => {
-      window.removeEventListener('mousemove', onMove)
-      document.documentElement.removeEventListener('mouseleave', onLeave)
-    }
-  }, [showIntro])
+    if (!editMode) return undefined
+    const onKey = (e) => { if (e.key === 'Escape') setEditMode(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [editMode])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -82,12 +91,14 @@ export default function Login() {
     'input pl-9 !bg-white/15 !text-white !border-white/30 placeholder:!text-white/70 focus:!border-gold-400'
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-8 md:justify-start md:px-0 md:pl-[8vw] lg:pl-[10vw] animate-page-fade-in">
+    <div ref={containerRef} className="relative h-screen overflow-hidden animate-page-fade-in" style={{ height: '100dvh' }}>
       {/* Full-screen animated transport background */}
       <TransportBackground />
 
-      {/* Transparent (glass) sign-in card */}
-      <div ref={cardRef} style={{ transition: 'transform 0.25s ease-out', willChange: 'transform' }} className="relative z-10 w-full max-w-md rounded-3xl border border-white/25 bg-[rgba(15,26,53,0.35)] backdrop-blur-xl shadow-2xl px-8 py-9 sm:px-10">
+      <PanelControls layout={layout} editMode={editMode} onToggle={() => setEditMode((v) => !v)} />
+
+      {/* Transparent (glass) sign-in card: drag + resize it in "Edit layout" mode */}
+      <DraggablePanel layout={layout} editMode={editMode}>
         <p className="text-gold-400 font-semibold text-[11px] tracking-[0.18em] mb-2">DELIVERY CHALLAN &amp; E-WAY BILL</p>
         <h1 className="text-3xl font-bold text-white mb-1">
           {mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Sign Up' : 'Reset Password'}
@@ -165,7 +176,7 @@ export default function Login() {
             </>
           )}
         </p>
-      </div>
+      </DraggablePanel>
     </div>
   )
 }
