@@ -1,23 +1,29 @@
 import React, { useRef, useState } from 'react'
 
-// A glass panel that can be dragged and resized inside its (position: relative) container.
-// Uses pointer events, so the same code works for mouse, pen and touch.
-// While `editMode` is off the panel behaves like a normal card and its content is fully usable.
+// A glass panel that can be dragged and resized with the mouse (or a finger) inside its
+// position: relative container. It uses pointer events, so mouse, pen and touch all work.
+//  - Press and hold on any empty part of the card (not on a field / button / link) and drag it.
+//  - Drag the grip bar at the top (also works for touch screens).
+//  - Drag an edge or a corner to resize.
+// The form inside keeps working normally: clicks on inputs, buttons and links never start a drag.
+// `editMode` only adds a visible outline and handles (and the X / Y / W / H controls elsewhere).
 
 const HANDLES = [
   // [direction, classes]
-  ['n', 'left-4 right-4 top-0 h-3 cursor-ns-resize'],
-  ['s', 'left-4 right-4 bottom-0 h-3 cursor-ns-resize'],
-  ['w', 'top-4 bottom-4 left-0 w-3 cursor-ew-resize'],
-  ['e', 'top-4 bottom-4 right-0 w-3 cursor-ew-resize'],
+  ['n', 'left-5 right-5 top-0 h-2.5 cursor-ns-resize'],
+  ['s', 'left-5 right-5 bottom-0 h-2.5 cursor-ns-resize'],
+  ['w', 'top-5 bottom-5 left-0 w-2.5 cursor-ew-resize'],
+  ['e', 'top-5 bottom-5 right-0 w-2.5 cursor-ew-resize'],
   ['nw', 'left-0 top-0 h-5 w-5 cursor-nwse-resize'],
   ['ne', 'right-0 top-0 h-5 w-5 cursor-nesw-resize'],
   ['sw', 'bottom-0 left-0 h-5 w-5 cursor-nesw-resize'],
   ['se', 'bottom-0 right-0 h-5 w-5 cursor-nwse-resize']
 ]
 
+const INTERACTIVE = 'input,button,a,label,select,textarea,[data-no-drag]'
+
 export default function DraggablePanel({ layout, editMode, children }) {
-  const { rect, moveBy, resizeBy, nudge } = layout
+  const { rect, moveBy, resizeBy } = layout
   const gesture = useRef(null)
   const [active, setActive] = useState(false)
   if (!rect) return null
@@ -32,6 +38,7 @@ export default function DraggablePanel({ layout, editMode, children }) {
   const bind = (mode) => ({
     onPointerDown: (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return
+      if (mode === 'move' && e.target.closest && e.target.closest(INTERACTIVE)) return
       e.preventDefault()
       e.stopPropagation()
       e.currentTarget.setPointerCapture(e.pointerId)
@@ -50,15 +57,6 @@ export default function DraggablePanel({ layout, editMode, children }) {
     onPointerCancel: end
   })
 
-  const onKeyDown = (e) => {
-    const step = e.shiftKey ? 20 : 4
-    const map = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }
-    if (map[e.key]) {
-      e.preventDefault()
-      nudge(...map[e.key])
-    }
-  }
-
   return (
     <div
       className="absolute left-0 top-0 z-10"
@@ -70,43 +68,39 @@ export default function DraggablePanel({ layout, editMode, children }) {
         willChange: 'transform'
       }}
     >
-      {/* The glass card itself */}
+      {/* The glass card: drag it from any empty spot */}
       <div
-        className={`h-full w-full overflow-hidden rounded-3xl border bg-[rgba(15,26,53,0.35)] shadow-2xl backdrop-blur-xl ${
-          editMode ? 'border-gold-400/70' : 'border-white/25'
-        }`}
+        {...bind('move')}
+        className={`h-full w-full select-none overflow-hidden rounded-3xl border bg-[rgba(15,26,53,0.35)] shadow-2xl backdrop-blur-xl ${
+          active ? 'cursor-grabbing' : 'cursor-grab'
+        } ${editMode ? 'border-dashed border-gold-400' : 'border-white/25'}`}
       >
-        <div className={`h-full overflow-y-auto px-6 py-7 sm:px-9 sm:py-9 ${editMode ? 'pointer-events-none select-none' : ''}`}>
-          {children}
-        </div>
+        <div className="h-full overflow-y-auto px-6 pb-7 pt-9 sm:px-9 sm:pb-9 sm:pt-11">{children}</div>
       </div>
 
-      {/* Edit mode: drag surface + resize handles */}
-      {editMode && (
-        <>
-          <div
-            {...bind('move')}
-            onKeyDown={onKeyDown}
-            tabIndex={0}
-            role="group"
-            aria-label="Sign-in panel. Drag to move, or use the arrow keys."
-            className={`absolute inset-0 touch-none select-none rounded-3xl border-2 border-dashed border-gold-400 bg-gold-400/5 outline-none ${
-              active ? 'cursor-grabbing' : 'cursor-grab'
-            }`}
-          >
-            <span className="pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 rounded-full bg-[rgba(15,26,53,0.85)] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-gold-400">
-              Drag to move
-            </span>
-          </div>
-          {HANDLES.map(([dir, cls]) => (
-            <div key={dir} {...bind(dir)} className={`absolute z-10 touch-none ${cls}`}>
-              {dir.length === 2 && (
-                <span className="absolute inset-1 rounded-full border-2 border-gold-400 bg-white shadow" />
-              )}
-            </div>
-          ))}
-        </>
-      )}
+      {/* Grip bar (works for touch too) */}
+      <div
+        {...bind('move')}
+        className={`absolute left-1/2 top-2 z-10 flex h-6 w-20 -translate-x-1/2 touch-none items-center justify-center ${
+          active ? 'cursor-grabbing' : 'cursor-grab'
+        }`}
+        title="Drag to move"
+      >
+        <span className="h-1 w-10 rounded-full bg-white/45" />
+      </div>
+
+      {/* Resize handles: edges and corners (dots show on hover, or always in edit mode) */}
+      {HANDLES.map(([dir, cls]) => (
+        <div key={dir} {...bind(dir)} className={`group absolute z-10 touch-none ${cls}`}>
+          {dir.length === 2 && (
+            <span
+              className={`absolute inset-1 rounded-full border-2 border-gold-400 bg-white shadow transition-opacity ${
+                editMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              }`}
+            />
+          )}
+        </div>
+      ))}
     </div>
   )
 }

@@ -41,7 +41,7 @@ export default function PanelControls({ layout, editMode, onToggle }) {
         aria-pressed={editMode}
       >
         {editMode ? <Check size={14} /> : <Move size={14} />}
-        {editMode ? 'Done' : 'Edit layout'}
+        {editMode ? 'Done' : 'Position'}
       </button>
 
       {editMode && rect && (
