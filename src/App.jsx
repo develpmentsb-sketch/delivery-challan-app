@@ -1,5 +1,5 @@
 import React from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
 import LoadingSpinner from './components/LoadingSpinner'
@@ -33,13 +33,16 @@ function ProtectedRoute({ children, perm }) {
 }
 
 export default function App() {
-  const { session, loading } = useAuth()
+  const { session, loading, isAdmin } = useAuth()
+  const location = useLocation()
+  // An admin who is already signed in may still open the login page to arrange the sign-in panel.
+  const adminLayoutEdit = isAdmin && new URLSearchParams(location.search).get('layout') === 'edit'
 
   return (
     <Routes>
       <Route
         path="/login"
-        element={loading ? null : session ? <Navigate to="/" replace /> : <Login />}
+        element={loading ? null : session && !adminLayoutEdit ? <Navigate to="/" replace /> : <Login />}
       />
       <Route path="/" element={<ProtectedRoute perm="dashboard.view"><Dashboard /></ProtectedRoute>} />
       <Route path="/challan/new" element={<ProtectedRoute perm="challan.create"><DeliveryChallanForm /></ProtectedRoute>} />

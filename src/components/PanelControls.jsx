@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { Move, Check, RotateCcw } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Move, Check, RotateCcw, ArrowLeft } from 'lucide-react'
 
 // "Edit layout" toggle (top-right) plus, in edit mode, a small box to set X / Y / width / height exactly.
 
@@ -24,12 +25,19 @@ function NumberField({ label, value, onCommit }) {
   )
 }
 
-export default function PanelControls({ layout, editMode, onToggle }) {
+export default function PanelControls({ layout, editMode, onToggle, saveState }) {
   const { rect, bounds, update, reset } = layout
   // Keep the controls box on the opposite side from the panel so it never covers it.
   const side = rect && rect.x + rect.w / 2 > bounds.w / 2 ? 'left-4' : 'right-4'
   return (
     <>
+      <Link
+        to="/"
+        className="absolute left-4 top-4 z-40 inline-flex items-center gap-2 rounded-full border border-white/30 bg-[rgba(15,26,53,0.55)] px-4 py-2 text-xs font-semibold text-white shadow-lg backdrop-blur hover:bg-[rgba(15,26,53,0.75)]"
+      >
+        <ArrowLeft size={14} /> Back to app
+      </Link>
+
       <button
         type="button"
         onClick={onToggle}
@@ -41,7 +49,7 @@ export default function PanelControls({ layout, editMode, onToggle }) {
         aria-pressed={editMode}
       >
         {editMode ? <Check size={14} /> : <Move size={14} />}
-        {editMode ? 'Done' : 'Position'}
+        {editMode ? 'Hide controls' : 'Position'}
       </button>
 
       {editMode && rect && (
@@ -60,7 +68,12 @@ export default function PanelControls({ layout, editMode, onToggle }) {
           >
             <RotateCcw size={13} /> Reset to default
           </button>
-          <p className="mt-2 text-[10px] leading-snug text-white/55">Layout is saved automatically in this browser.</p>
+          <p className="mt-2 text-[10px] leading-snug text-white/60">
+            {saveState === 'saving' && 'Saving for everyone...'}
+            {saveState === 'saved' && 'Saved. Everyone now sees this layout.'}
+            {saveState === 'error' && 'Could not save. Run supabase/add_app_settings.sql first.'}
+            {!saveState && 'Admin only. Drag the panel, then it saves for everyone.'}
+          </p>
         </div>
       )}
     </>

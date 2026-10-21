@@ -2,10 +2,12 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Mail, Lock, Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
+import { useSearchParams } from 'react-router-dom'
 import TransportBackground from '../components/TransportBackground'
 import DraggablePanel from '../components/DraggablePanel'
 import PanelControls from '../components/PanelControls'
 import usePanelLayout from '../hooks/usePanelLayout'
+import { fetchLoginLayout, saveLoginLayout, readCachedLoginLayout } from '../services/appSettings'
 
 const PANEL_MIN = { w: 300, h: 340 }
 
@@ -20,7 +22,10 @@ function defaultPanelRect(b) {
 }
 
 export default function Login() {
-  const { signIn, signUp, resetPassword } = useAuth()
+  const { signIn, signUp, resetPassword, isAdmin } = useAuth()
+  // Only a signed-in admin who opens /login?layout=edit may move / resize the panel.
+  const [searchParams] = useSearchParams()
+  const adminEditing = isAdmin && searchParams.get('layout') === 'edit'
   const toast = useToast()
   const [mode, setMode] = useState('signin') // 'signin' | 'signup' | 'forgot'
   const [email, setEmail] = useState('')
@@ -31,7 +36,7 @@ export default function Login() {
 
   // Play the opening animation every time the page loads or is refreshed
   // (it does not replay when switching between Sign In / Sign Up / Forgot Password).
-  const [showIntro, setShowIntro] = useState(true)
+  const [showIntro, setShowIntro] = useState(!adminEditing)
   const [introLeaving, setIntroLeaving] = useState(false)
 
   useEffect(() => {
@@ -44,23 +49,46 @@ export default function Login() {
     }
   }, [showIntro])
 
-  // Draggable / resizable sign-in panel
+  // Sign-in panel layout: saved for everyone in the database; only an admin can change it.
   const containerRef = useRef(null)
-  const [editMode, setEditMode] = useState(false)
+  const [editMode, setEditMode] = useState(true) // admin: show the X / Y / W / H box
+  const [saveState, setSaveState] = useState(null) // null | 'saving' | 'saved' | 'error'
+  const [savedLayout, setSavedLayout] = useState(() => readCachedLoginLayout())
+
+  useEffect(() => {
+    let alive = true
+    fetchLoginLayout().then((v) => { if (alive && v) setSavedLayout(v) })
+    return () => { alive = false }
+  }, [])
+
+  const persistLayout = async (value) => {
+    setSaveState('saving')
+    try {
+      await saveLoginLayout(value)
+      setSaveState('saved')
+    } catch (err) {
+      setSaveState('error')
+      toast.error(err.message || 'Could not save the layout')
+    }
+  }
+
   const layout = usePanelLayout({
     containerRef,
     enabled: !showIntro,
-    storageKey: 'dc-login-panel-layout-v1',
+    saved: savedLayout,
     getDefault: defaultPanelRect,
-    min: PANEL_MIN
+    min: PANEL_MIN,
+    onChange: adminEditing ? persistLayout : undefined
   })
+  // Editing needs a desktop / tablet width, because the saved layout is for wide screens.
+  const canEditLayout = adminEditing && layout.bounds.w >= 768
 
   useEffect(() => {
-    if (!editMode) return undefined
+    if (!canEditLayout || !editMode) return undefined
     const onKey = (e) => { if (e.key === 'Escape') setEditMode(false) }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [editMode])
+  }, [canEditLayout, editMode])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -95,10 +123,12 @@ export default function Login() {
       {/* Full-screen animated transport background */}
       <TransportBackground />
 
-      <PanelControls layout={layout} editMode={editMode} onToggle={() => setEditMode((v) => !v)} />
+      {canEditLayout && (
+        <PanelControls layout={layout} editMode={editMode} onToggle={() => setEditMode((v) => !v)} saveState={saveState} />
+      )}
 
-      {/* Transparent (glass) sign-in card: drag + resize it in "Edit layout" mode */}
-      <DraggablePanel layout={layout} editMode={editMode}>
+      {/* Transparent (glass) sign-in card. Admin-only: drag / resize it (open /login?layout=edit) */}
+      <DraggablePanel layout={layout} editMode={canEditLayout && editMode} locked={!canEditLayout}>
         <p className="text-gold-400 font-semibold text-[11px] tracking-[0.18em] mb-2">DELIVERY CHALLAN &amp; E-WAY BILL</p>
         <h1 className="text-3xl font-bold text-white mb-1">
           {mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Sign Up' : 'Reset Password'}

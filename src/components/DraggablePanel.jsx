@@ -22,7 +22,7 @@ const HANDLES = [
 
 const INTERACTIVE = 'input,button,a,label,select,textarea,[data-no-drag]'
 
-export default function DraggablePanel({ layout, editMode, children }) {
+export default function DraggablePanel({ layout, editMode, locked = false, children }) {
   const { rect, moveBy, resizeBy } = layout
   const gesture = useRef(null)
   const [active, setActive] = useState(false)
@@ -37,6 +37,7 @@ export default function DraggablePanel({ layout, editMode, children }) {
 
   const bind = (mode) => ({
     onPointerDown: (e) => {
+      if (locked) return
       if (e.pointerType === 'mouse' && e.button !== 0) return
       if (mode === 'move' && e.target.closest && e.target.closest(INTERACTIVE)) return
       e.preventDefault()
@@ -71,14 +72,15 @@ export default function DraggablePanel({ layout, editMode, children }) {
       {/* The glass card: drag it from any empty spot */}
       <div
         {...bind('move')}
-        className={`h-full w-full select-none overflow-hidden rounded-3xl border bg-[rgba(15,26,53,0.35)] shadow-2xl backdrop-blur-xl ${
-          active ? 'cursor-grabbing' : 'cursor-grab'
+        className={`h-full w-full overflow-hidden rounded-3xl border bg-[rgba(15,26,53,0.35)] shadow-2xl backdrop-blur-xl ${
+          locked ? '' : active ? 'cursor-grabbing select-none' : 'cursor-grab select-none'
         } ${editMode ? 'border-dashed border-gold-400' : 'border-white/25'}`}
       >
         <div className="h-full overflow-y-auto px-6 pb-7 pt-9 sm:px-9 sm:pb-9 sm:pt-11">{children}</div>
       </div>
 
       {/* Grip bar (works for touch too) */}
+      {!locked && (
       <div
         {...bind('move')}
         className={`absolute left-1/2 top-2 z-10 flex h-6 w-20 -translate-x-1/2 touch-none items-center justify-center ${
@@ -88,9 +90,10 @@ export default function DraggablePanel({ layout, editMode, children }) {
       >
         <span className="h-1 w-10 rounded-full bg-white/45" />
       </div>
+      )}
 
       {/* Resize handles: edges and corners (dots show on hover, or always in edit mode) */}
-      {HANDLES.map(([dir, cls]) => (
+      {!locked && HANDLES.map(([dir, cls]) => (
         <div key={dir} {...bind(dir)} className={`group absolute z-10 touch-none ${cls}`}>
           {dir.length === 2 && (
             <span
