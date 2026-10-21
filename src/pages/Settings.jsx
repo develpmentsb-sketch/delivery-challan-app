@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Pencil, Save, X, Upload, Loader2, KeyRound } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Pencil, Save, X, Upload, Loader2, KeyRound, Move } from 'lucide-react'
 import Header from '../components/Header'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -22,7 +23,7 @@ const FIELDS = [
 const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]$/
 
 export default function Settings() {
-  const { user, role, can, changePassword } = useAuth()
+  const { user, role, can, changePassword, isAdmin } = useAuth()
   const toast = useToast()
   const canEdit = can('company.edit')
   const canChangePassword = can('account.change_password')
@@ -253,6 +254,18 @@ export default function Settings() {
         </div>
 
         <CompanyLocations />
+
+        {isAdmin && (
+          <div className="card p-5">
+            <h3 className="font-semibold text-navy text-sm mb-1">Login Page Layout</h3>
+            <p className="text-xs text-navy-400 mb-4">
+              Admin only. Drag and resize the Sign In panel on the login page. The layout you save is shown to everyone.
+            </p>
+            <Link to="/login?layout=edit" className="btn-primary">
+              <Move size={16} /> Edit Sign In Layout
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   )
