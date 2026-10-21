@@ -45,6 +45,10 @@ export function AuthProvider({ children }) {
   const resetPassword = (email) =>
     supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + import.meta.env.BASE_URL })
 
+  // Email one-time-code (OTP) for registration: signUp() emails a code, verifyEmailOtp() confirms it.
+  const verifyEmailOtp = (email, token) => supabase.auth.verifyOtp({ email, token, type: 'signup' })
+  const resendEmailOtp = (email) => supabase.auth.resend({ type: 'signup', email })
+
   const value = useMemo(() => {
     const profileReady = !userId || profileState.uid === userId
     const profile = userId && profileState.uid === userId ? profileState.data : null
@@ -59,7 +63,7 @@ export function AuthProvider({ children }) {
       isAdmin: role === 'admin',
       can: (permission) => canRole(role, permission),
       refreshProfile: loadProfile,
-      signIn, signUp, signOut, changePassword, signInWithOAuth, resetPassword
+      signIn, signUp, signOut, changePassword, signInWithOAuth, resetPassword, verifyEmailOtp, resendEmailOtp
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, authLoading, profileState, userId, loadProfile])

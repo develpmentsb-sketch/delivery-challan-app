@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Mail, Lock, Loader2 } from 'lucide-react'
+import { Mail, Lock, Loader2, KeyRound } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useSearchParams } from 'react-router-dom'
@@ -26,7 +26,7 @@ function defaultPanelRect(b) {
 }
 
 export default function Login() {
-  const { signIn, signUp, resetPassword, isAdmin } = useAuth()
+  const { signIn, signUp, resetPassword, verifyEmailOtp, resendEmailOtp, isAdmin } = useAuth()
   // Only a signed-in admin who opens /login?layout=edit may move / resize the panel.
   const [searchParams] = useSearchParams()
   const adminEditing = isAdmin && searchParams.get('layout') === 'edit'
@@ -37,6 +37,8 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [remember, setRemember] = useState(true)
   const [loading, setLoading] = useState(false)
+  const [otp, setOtp] = useState('')
+  const [cooldown, setCooldown] = useState(0) // seconds before the code can be re-sent
 
   // Play the opening animation every time the page loads or is refreshed
   // (it does not replay when switching between Sign In / Sign Up / Forgot Password).
@@ -122,6 +124,24 @@ export default function Login() {
     return () => window.removeEventListener('keydown', onKey)
   }, [canEditLayout, editMode])
 
+  useEffect(() => {
+    if (cooldown <= 0) return undefined
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [cooldown])
+
+  const resendCode = async () => {
+    if (cooldown > 0) return
+    try {
+      const { error } = await resendEmailOtp(email)
+      if (error) throw error
+      setCooldown(60)
+      toast.success('A new code was sent to your email.')
+    } catch (err) {
+      toast.error(err.message || 'Could not resend the code')
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -133,9 +153,27 @@ export default function Login() {
         setMode('signin')
         return
       }
-      const { error } = mode === 'signin' ? await signIn(email, password) : await signUp(email, password)
+      if (mode === 'verify') {
+        const { error } = await verifyEmailOtp(email, otp.trim())
+        if (error) throw error
+        toast.success('Email verified. Welcome!') // the session starts and the app opens the dashboard
+        return
+      }
+      if (mode === 'signup') {
+        const { data, error } = await signUp(email, password)
+        if (error) throw error
+        if (data?.session) { toast.success('Account created.'); return } // email confirmation is switched off
+        if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+          throw new Error('This email is already registered. Please sign in.')
+        }
+        setOtp('')
+        setCooldown(60)
+        setMode('verify')
+        toast.success(`We sent a verification code to ${email}`)
+        return
+      }
+      const { error } = await signIn(email, password)
       if (error) throw error
-      if (mode === 'signup') toast.success('Account created. Check your email to confirm, then sign in.')
     } catch (err) {
       toast.error(err.message || 'Something went wrong')
     } finally {
@@ -169,7 +207,7 @@ export default function Login() {
         />
         <EditableText
           as="h1"
-          value={mode === 'signin' ? texts.title : mode === 'signup' ? 'Registration' : 'Reset Password'}
+          value={mode === 'signin' ? texts.title : mode === 'signup' ? 'Registration' : mode === 'verify' ? 'Verify Email' : 'Reset Password'}
           onChange={(v) => changeText('title', v)}
           editable={canEditLayout && mode === 'signin'}
           className="text-3xl font-bold text-white mb-1"
@@ -177,7 +215,8 @@ export default function Login() {
         <EditableText
           value={
             mode === 'signin' ? texts.subtitle
-              : mode === 'signup' ? 'Create an account to get started.'
+              : mode === 'signup' ? 'Create an account with your email. We will send you a verification code.'
+              : mode === 'verify' ? `Enter the code we emailed to ${email}.`
               : "Enter your email and we'll send a reset link."
           }
           onChange={(v) => changeText('subtitle', v)}
@@ -187,6 +226,7 @@ export default function Login() {
         />
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {mode !== 'verify' && (
           <div className="relative">
             <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70" />
             <input
@@ -198,8 +238,28 @@ export default function Login() {
               placeholder="Email Address"
             />
           </div>
+          )}
 
-          {mode !== 'forgot' && (
+          {mode === 'verify' && (
+            <div className="relative">
+              <KeyRound size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70" />
+              <input
+                className={`${fieldClass} tracking-[0.35em] text-center text-lg font-semibold`}
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                required
+                minLength={6}
+                maxLength={10}
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                placeholder="Enter code"
+                autoFocus
+              />
+            </div>
+          )}
+
+          {mode !== 'forgot' && mode !== 'verify' && (
             <div className="relative">
               <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70" />
               <input
@@ -236,12 +296,21 @@ export default function Login() {
 
           <button type="submit" disabled={loading} className="btn-primary w-full !py-3 mt-3 !bg-gold-400 !text-navy hover:brightness-110">
             {loading && <Loader2 size={16} className="animate-spin" />}
-            {mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send Reset Link'}
+            {mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Send Code' : mode === 'verify' ? 'Verify & Continue' : 'Send Reset Link'}
           </button>
         </form>
 
         <p className="text-xs text-white/75 mt-7 text-center">
-          {mode === 'forgot' ? (
+          {mode === 'verify' ? (
+            <>
+              Didn&apos;t get it?{' '}
+              <button type="button" onClick={resendCode} disabled={cooldown > 0} className="text-white font-semibold hover:underline disabled:opacity-60 disabled:no-underline">
+                {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
+              </button>
+              <br />
+              <button type="button" onClick={() => setMode('signup')} className="mt-2 text-white/80 hover:text-white hover:underline">Change email</button>
+            </>
+          ) : mode === 'forgot' ? (
             <button onClick={() => setMode('signin')} className="text-white font-semibold hover:underline">Back to Sign In</button>
           ) : mode === 'signin' ? (
             <>Don&apos;t have an account?{' '}
