@@ -169,7 +169,7 @@ export default function Login() {
         />
         <EditableText
           as="h1"
-          value={mode === 'signin' ? texts.title : mode === 'signup' ? 'Sign Up' : 'Reset Password'}
+          value={mode === 'signin' ? texts.title : mode === 'signup' ? 'Registration' : 'Reset Password'}
           onChange={(v) => changeText('title', v)}
           editable={canEditLayout && mode === 'signin'}
           className="text-3xl font-bold text-white mb-1"
@@ -245,7 +245,7 @@ export default function Login() {
             <button onClick={() => setMode('signin')} className="text-white font-semibold hover:underline">Back to Sign In</button>
           ) : mode === 'signin' ? (
             <>Don&apos;t have an account?{' '}
-              <button onClick={() => setMode('signup')} className="text-white font-semibold hover:underline">Sign Up</button>
+              <button onClick={() => setMode('signup')} className="text-white font-semibold hover:underline">Register</button>
             </>
           ) : (
             <>Already have an account?{' '}
