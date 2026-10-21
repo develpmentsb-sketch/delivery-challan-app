@@ -58,7 +58,7 @@ export default function Login() {
     'input pl-9 !bg-white/15 !text-white !border-white/30 placeholder:!text-white/70 focus:!border-gold-400'
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-8 animate-page-fade-in">
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-8 md:justify-start md:px-0 md:pl-[8vw] lg:pl-[10vw] animate-page-fade-in">
       {/* Full-screen animated transport background */}
       <TransportBackground />
 
