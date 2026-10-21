@@ -29,24 +29,29 @@ export default function Login() {
     }
   }, [showIntro])
 
-  // Card follows the mouse: it tilts in 3D toward the cursor and shifts slightly.
+  // Card follows the mouse: it slides left / right / up / down and tilts toward the cursor.
   const cardRef = useRef(null)
-  const handleMouseMove = (e) => {
-    const el = cardRef.current
-    if (!el || e.pointerType === 'touch') return
-    const r = el.getBoundingClientRect()
-    const dx = (e.clientX - (r.left + r.width / 2)) / window.innerWidth  // -0.5 .. 0.5
-    const dy = (e.clientY - (r.top + r.height / 2)) / window.innerHeight
-    const clamp = (v, m) => Math.max(-m, Math.min(m, v))
-    const rx = clamp(-dy * 22, 9)
-    const ry = clamp(dx * 22, 9)
-    const tx = clamp(dx * 40, 14)
-    const ty = clamp(dy * 40, 14)
-    el.style.transform = `perspective(1000px) translate3d(${tx}px, ${ty}px, 0) rotateX(${rx}deg) rotateY(${ry}deg)`
-  }
-  const handleMouseLeave = () => {
-    if (cardRef.current) cardRef.current.style.transform = 'perspective(1000px) translate3d(0,0,0) rotateX(0deg) rotateY(0deg)'
-  }
+  useEffect(() => {
+    if (showIntro) return
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const onMove = (e) => {
+      const el = cardRef.current
+      if (!el) return
+      const nx = (e.clientX / window.innerWidth - 0.5) * 2   // -1 (left) .. 1 (right)
+      const ny = (e.clientY / window.innerHeight - 0.5) * 2  // -1 (top) .. 1 (bottom)
+      el.style.transform =
+        `perspective(900px) translate3d(${nx * 70}px, ${ny * 45}px, 0) rotateX(${-ny * 10}deg) rotateY(${nx * 14}deg)`
+    }
+    const onLeave = () => {
+      if (cardRef.current) cardRef.current.style.transform = 'perspective(900px) translate3d(0,0,0) rotateX(0deg) rotateY(0deg)'
+    }
+    window.addEventListener('mousemove', onMove)
+    document.documentElement.addEventListener('mouseleave', onLeave)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      document.documentElement.removeEventListener('mouseleave', onLeave)
+    }
+  }, [showIntro])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -77,12 +82,12 @@ export default function Login() {
     'input pl-9 !bg-white/15 !text-white !border-white/30 placeholder:!text-white/70 focus:!border-gold-400'
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-8 md:justify-start md:px-0 md:pl-[8vw] lg:pl-[10vw] animate-page-fade-in" onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-8 md:justify-start md:px-0 md:pl-[8vw] lg:pl-[10vw] animate-page-fade-in">
       {/* Full-screen animated transport background */}
       <TransportBackground />
 
       {/* Transparent (glass) sign-in card */}
-      <div ref={cardRef} style={{ transition: 'transform 0.18s ease-out', willChange: 'transform' }} className="relative z-10 w-full max-w-md rounded-3xl border border-white/25 bg-[rgba(15,26,53,0.35)] backdrop-blur-xl shadow-2xl px-8 py-9 sm:px-10">
+      <div ref={cardRef} style={{ transition: 'transform 0.25s ease-out', willChange: 'transform' }} className="relative z-10 w-full max-w-md rounded-3xl border border-white/25 bg-[rgba(15,26,53,0.35)] backdrop-blur-xl shadow-2xl px-8 py-9 sm:px-10">
         <p className="text-gold-400 font-semibold text-[11px] tracking-[0.18em] mb-2">DELIVERY CHALLAN &amp; E-WAY BILL</p>
         <h1 className="text-3xl font-bold text-white mb-1">
           {mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Sign Up' : 'Reset Password'}
