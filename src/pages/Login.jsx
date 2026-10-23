@@ -26,7 +26,7 @@ function defaultPanelRect(b) {
 }
 
 export default function Login() {
-  const { signIn, signUp, resetPassword, verifyEmailOtp, resendEmailOtp, isAdmin } = useAuth()
+  const { signIn, signUp, resetPassword, verifyEmailOtp, resendEmailOtp, sendLoginOtp, isAdmin } = useAuth()
   // Only a signed-in admin who opens /login?layout=edit may move / resize the panel.
   const [searchParams] = useSearchParams()
   const adminEditing = isAdmin && searchParams.get('layout') === 'edit'
@@ -38,6 +38,7 @@ export default function Login() {
   const [remember, setRemember] = useState(true)
   const [loading, setLoading] = useState(false)
   const [otp, setOtp] = useState('')
+  const [verifyKind, setVerifyKind] = useState('signup') // 'signup' = new account, 'login' = sign in with code
   const [cooldown, setCooldown] = useState(0) // seconds before the code can be re-sent
 
   // Play the opening animation every time the page loads or is refreshed
@@ -133,7 +134,7 @@ export default function Login() {
   const resendCode = async () => {
     if (cooldown > 0) return
     try {
-      const { error } = await resendEmailOtp(email)
+      const { error } = verifyKind === 'login' ? await sendLoginOtp(email) : await resendEmailOtp(email)
       if (error) throw error
       setCooldown(60)
       toast.success('A new code was sent to your email.')
@@ -154,9 +155,19 @@ export default function Login() {
         return
       }
       if (mode === 'verify') {
-        const { error } = await verifyEmailOtp(email, otp.trim())
+        const { error } = await verifyEmailOtp(email, otp.trim(), verifyKind === 'login' ? 'email' : 'signup')
         if (error) throw error
-        toast.success('Email verified. Welcome!') // the session starts and the app opens the dashboard
+        toast.success(verifyKind === 'login' ? 'Signed in.' : 'Email verified. Welcome!') // the session starts and the app opens the dashboard
+        return
+      }
+      if (mode === 'otp') {
+        const { error } = await sendLoginOtp(email)
+        if (error) throw error
+        setOtp('')
+        setCooldown(60)
+        setVerifyKind('login')
+        setMode('verify')
+        toast.success(`We sent a sign-in code to ${email}`)
         return
       }
       if (mode === 'signup') {
@@ -168,6 +179,7 @@ export default function Login() {
         }
         setOtp('')
         setCooldown(60)
+        setVerifyKind('signup')
         setMode('verify')
         toast.success(`We sent a verification code to ${email}`)
         return
@@ -207,7 +219,7 @@ export default function Login() {
         />
         <EditableText
           as="h1"
-          value={mode === 'signin' ? texts.title : mode === 'signup' ? 'Registration' : mode === 'verify' ? 'Verify Email' : 'Reset Password'}
+          value={mode === 'signin' ? texts.title : mode === 'signup' ? 'Registration' : mode === 'verify' ? (verifyKind === 'login' ? 'Enter Code' : 'Verify Email') : mode === 'otp' ? 'Sign In with Code' : 'Reset Password'}
           onChange={(v) => changeText('title', v)}
           editable={canEditLayout && mode === 'signin'}
           className="text-3xl font-bold text-white mb-1"
@@ -217,6 +229,7 @@ export default function Login() {
             mode === 'signin' ? texts.subtitle
               : mode === 'signup' ? 'Create an account with your email. We will send you a verification code.'
               : mode === 'verify' ? `Enter the code we emailed to ${email}.`
+              : mode === 'otp' ? 'Enter your registered email and we will send you a one-time code.'
               : "Enter your email and we'll send a reset link."
           }
           onChange={(v) => changeText('subtitle', v)}
@@ -259,7 +272,7 @@ export default function Login() {
             </div>
           )}
 
-          {mode !== 'forgot' && mode !== 'verify' && (
+          {mode !== 'forgot' && mode !== 'verify' && mode !== 'otp' && (
             <div className="relative">
               <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70" />
               <input
@@ -296,9 +309,19 @@ export default function Login() {
 
           <button type="submit" disabled={loading} className="btn-primary w-full !py-3 mt-3 !bg-gold-400 !text-navy hover:brightness-110">
             {loading && <Loader2 size={16} className="animate-spin" />}
-            {mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Send Code' : mode === 'verify' ? 'Verify & Continue' : 'Send Reset Link'}
+            {mode === 'signin' ? 'Sign In' : mode === 'signup' || mode === 'otp' ? 'Send Code' : mode === 'verify' ? 'Verify & Continue' : 'Send Reset Link'}
           </button>
         </form>
+
+        {mode === 'signin' && (
+          <button
+            type="button"
+            onClick={() => setMode('otp')}
+            className="mt-4 w-full text-center text-xs font-semibold text-gold-400 hover:text-gold-300"
+          >
+            Sign in with email code instead
+          </button>
+        )}
 
         <p className="text-xs text-white/75 mt-7 text-center">
           {mode === 'verify' ? (
@@ -308,9 +331,9 @@ export default function Login() {
                 {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
               </button>
               <br />
-              <button type="button" onClick={() => setMode('signup')} className="mt-2 text-white/80 hover:text-white hover:underline">Change email</button>
+              <button type="button" onClick={() => setMode(verifyKind === 'login' ? 'otp' : 'signup')} className="mt-2 text-white/80 hover:text-white hover:underline">Change email</button>
             </>
-          ) : mode === 'forgot' ? (
+          ) : mode === 'forgot' || mode === 'otp' ? (
             <button onClick={() => setMode('signin')} className="text-white font-semibold hover:underline">Back to Sign In</button>
           ) : mode === 'signin' ? (
             <>Don&apos;t have an account?{' '}

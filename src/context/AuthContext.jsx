@@ -45,9 +45,12 @@ export function AuthProvider({ children }) {
   const resetPassword = (email) =>
     supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + import.meta.env.BASE_URL })
 
-  // Email one-time-code (OTP) for registration: signUp() emails a code, verifyEmailOtp() confirms it.
-  const verifyEmailOtp = (email, token) => supabase.auth.verifyOtp({ email, token, type: 'signup' })
+  // Email one-time-code (OTP).
+  //  - Registration: signUp() emails a code, then verifyEmailOtp(email, code, 'signup') confirms it.
+  //  - Login with code: sendLoginOtp(email) emails a code, then verifyEmailOtp(email, code, 'email').
+  const verifyEmailOtp = (email, token, type = 'signup') => supabase.auth.verifyOtp({ email, token, type })
   const resendEmailOtp = (email) => supabase.auth.resend({ type: 'signup', email })
+  const sendLoginOtp = (email) => supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } })
 
   const value = useMemo(() => {
     const profileReady = !userId || profileState.uid === userId
@@ -63,7 +66,7 @@ export function AuthProvider({ children }) {
       isAdmin: role === 'admin',
       can: (permission) => canRole(role, permission),
       refreshProfile: loadProfile,
-      signIn, signUp, signOut, changePassword, signInWithOAuth, resetPassword, verifyEmailOtp, resendEmailOtp
+      signIn, signUp, signOut, changePassword, signInWithOAuth, resetPassword, verifyEmailOtp, resendEmailOtp, sendLoginOtp
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, authLoading, profileState, userId, loadProfile])
