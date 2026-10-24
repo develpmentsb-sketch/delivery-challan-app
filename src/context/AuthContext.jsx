@@ -64,7 +64,12 @@ export function AuthProvider({ children }) {
       role,
       isActive: Boolean(profile?.is_active),
       isAdmin: role === 'admin',
-      can: (permission) => canRole(role, permission),
+      // 'users.approve' = an active admin, or a user an admin marked as Manager (profiles.can_approve)
+      canApprove: Boolean(profile?.is_active && (profile.role === 'admin' || profile.can_approve)),
+      can: (permission) =>
+        permission === 'users.approve'
+          ? Boolean(profile?.is_active && (profile.role === 'admin' || profile.can_approve))
+          : canRole(role, permission),
       refreshProfile: loadProfile,
       signIn, signUp, signOut, changePassword, signInWithOAuth, resetPassword, verifyEmailOtp, resendEmailOtp, sendLoginOtp
     }

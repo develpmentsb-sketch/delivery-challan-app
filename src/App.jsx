@@ -51,7 +51,7 @@ export default function App() {
       <Route path="/items" element={<ProtectedRoute perm="items.view"><ItemMaster /></ProtectedRoute>} />
       <Route path="/partners" element={<ProtectedRoute perm="partners.view"><PartnerMaster /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute perm="settings.view"><Settings /></ProtectedRoute>} />
-      <Route path="/users" element={<ProtectedRoute perm="users.manage"><Users /></ProtectedRoute>} />
+      <Route path="/users" element={<ProtectedRoute perm="users.approve"><Users /></ProtectedRoute>} />
       <Route path="/backup-restore" element={<ProtectedRoute perm="backup.use"><BackupRestorePage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

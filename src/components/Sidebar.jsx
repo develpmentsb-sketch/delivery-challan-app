@@ -17,7 +17,7 @@ const NAV_ITEMS = [
 ]
 
 const BOTTOM_ITEMS = [
-  { to: '/users', label: 'User Management', icon: ShieldCheck, perm: 'users.manage' },
+  { to: '/users', label: 'User Management', icon: ShieldCheck, perm: 'users.approve' },
   { to: '/settings', label: 'Settings', icon: SettingsIcon, perm: 'settings.view' },
   { to: '/backup-restore', label: 'Backup / Restore', icon: DatabaseBackup, perm: 'backup.use' }
 ]
