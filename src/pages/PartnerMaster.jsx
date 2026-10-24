@@ -15,10 +15,27 @@ import { useToast } from '../context/ToastContext'
 const PAGE_SIZE = 10
 const ALL_COMPANIES = 'all'
 
+const VENDOR_STATUSES = ['Active', 'On Hold', 'Blocked']
+const GST_TYPES = ['Regular', 'Composition', 'Unregistered', 'SEZ', 'Overseas']
+const PAYMENT_TERMS = ['Advance', 'Immediate', 'Net 7', 'Net 15', 'Net 30', 'Net 45', 'Net 60', 'Net 90']
+const TDS_SECTIONS = [
+  ['194C', 'Contractors'], ['194J', 'Professional / technical fees'], ['194H', 'Commission / brokerage'],
+  ['194I', 'Rent'], ['194Q', 'Purchase of goods'], ['194A', 'Interest'], ['195', 'Payment to non-resident']
+]
+const TABS = [
+  { id: 'general', label: 'General' },
+  { id: 'addresses', label: 'Addresses' },
+  { id: 'payment', label: 'Payment & Tax' }
+]
+const statusBadge = (st) =>
+  st === 'Blocked' ? 'bg-brick/10 text-brick' : st === 'On Hold' ? 'bg-gold-100 text-gold-700' : 'bg-forest-100 text-forest-600'
+
 const emptyPartner = () => ({
   partner_type: 'Vendor', name: '', short_name: '', gstin: '', pan: '', contact_person: '', phone: '', email: '',
   bill_to_address_line1: '', bill_to_address_line2: '', bill_to_city: '', bill_to_district: '',
-  bill_to_state: '', bill_to_state_code: '', bill_to_pin: '', company_location_id: null, active: true
+  bill_to_state: '', bill_to_state_code: '', bill_to_pin: '', company_location_id: null, active: true,
+  vendor_code: '', vendor_group: '', rating: '', vendor_status: 'Active', gst_type: 'Regular', msme_number: '',
+  payment_terms: '', credit_days: '', credit_limit: '', tds_section: '', tds_rate: ''
 })
 
 const emptyShipTo = () => ({ ship_to_name: '', address_line1: '', address_line2: '', city: '', district: '', state: '', state_code: '', pin_code: '', gstin: '', is_default: false })
@@ -39,6 +56,7 @@ export default function PartnerMaster() {
   const [saving, setSaving] = useState(false)
   const [toDelete, setToDelete] = useState(null)
   const [viewOnly, setViewOnly] = useState(false)
+  const [tab, setTab] = useState('general')
 
   async function load() {
     setLoading(true)
@@ -57,6 +75,11 @@ export default function PartnerMaster() {
   }
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const vendorGroups = useMemo(
+    () => [...new Set(partners.map((p) => p.vendor_group).filter(Boolean))].sort(),
+    [partners]
+  )
+
   const locationName = (loc) => loc.legal_name || loc.location_name
   const locationsById = useMemo(
     () => Object.fromEntries(locations.map((l) => [l.id, locationName(l)])),
@@ -68,7 +91,7 @@ export default function PartnerMaster() {
     if (companyFilter === ALL_COMPANIES) rows = rows.filter((p) => !p.company_location_id)
     else if (companyFilter) rows = rows.filter((p) => p.company_location_id === companyFilter)
     const q = search.toLowerCase()
-    if (q) rows = rows.filter((p) => p.name.toLowerCase().includes(q) || p.gstin?.toLowerCase().includes(q) || p.phone?.toLowerCase().includes(q) || p.bill_to_state?.toLowerCase().includes(q))
+    if (q) rows = rows.filter((p) => p.name.toLowerCase().includes(q) || p.vendor_code?.toLowerCase().includes(q) || p.vendor_group?.toLowerCase().includes(q) || p.gstin?.toLowerCase().includes(q) || p.phone?.toLowerCase().includes(q) || p.bill_to_state?.toLowerCase().includes(q))
     return rows
   }, [partners, companyFilter, search])
 
@@ -77,9 +100,9 @@ export default function PartnerMaster() {
     return filtered.slice(start, start + PAGE_SIZE)
   }, [filtered, page])
 
-  function openCreate() { setEditing(null); setForm(emptyPartner()); setShipToList([]); setErrors({}); setViewOnly(false); setModalOpen(true) }
-  function openEdit(p) { setEditing(p); setForm(p); setShipToList(p.partner_ship_to || []); setErrors({}); setViewOnly(false); setModalOpen(true) }
-  function openView(p) { setEditing(p); setForm(p); setShipToList(p.partner_ship_to || []); setErrors({}); setViewOnly(true); setModalOpen(true) }
+  function openCreate() { setEditing(null); setForm(emptyPartner()); setShipToList([]); setErrors({}); setViewOnly(false); setTab('general'); setModalOpen(true) }
+  function openEdit(p) { setEditing(p); setForm(p); setShipToList(p.partner_ship_to || []); setErrors({}); setViewOnly(false); setTab('general'); setModalOpen(true) }
+  function openView(p) { setEditing(p); setForm(p); setShipToList(p.partner_ship_to || []); setErrors({}); setViewOnly(true); setTab('general'); setModalOpen(true) }
 
   function addShipTo() { setShipToList((prev) => [...prev, emptyShipTo()]) }
   function updateShipTo(idx, patch) {
@@ -92,18 +115,37 @@ export default function PartnerMaster() {
 
   async function handleSave() {
     const { valid, errors: errs } = validatePartner(form)
-    if (!valid) { setErrors(errs); return }
+    const num = (v) => (v === '' || v === null || v === undefined ? null : Number(v))
+    if (form.credit_limit !== '' && form.credit_limit !== null && !(num(form.credit_limit) >= 0)) errs.credit_limit = 'Enter 0 or more'
+    if (form.credit_days !== '' && form.credit_days !== null && !(num(form.credit_days) >= 0)) errs.credit_days = 'Enter 0 or more'
+    if (form.tds_rate !== '' && form.tds_rate !== null && !(num(form.tds_rate) >= 0 && num(form.tds_rate) <= 100)) errs.tds_rate = 'Enter 0 to 100'
+    if (!valid || Object.keys(errs).length) { setErrors(errs); if (errs.name || errs.gstin || errs.pan) setTab('general'); else if (errs.bill_to_pin) setTab('addresses'); else setTab('payment'); return }
     setSaving(true)
     try {
       if (form.gstin) {
         const dup = await isDuplicateGSTIN(form.gstin, editing?.id)
         if (dup) { setErrors({ gstin: 'This GSTIN is already used by another vendor' }); setSaving(false); return }
       }
+      // Clean the new fields: blanks become null, "active" follows the vendor status, the code is automatic
+      const { vendor_code, ...rest } = form
+      const payload = {
+        ...rest,
+        ...(editing && vendor_code ? { vendor_code } : {}),
+        rating: num(form.rating),
+        credit_days: num(form.credit_days),
+        credit_limit: num(form.credit_limit),
+        tds_rate: num(form.tds_rate),
+        vendor_group: form.vendor_group?.trim() || null,
+        payment_terms: form.payment_terms || null,
+        tds_section: form.tds_section || null,
+        msme_number: form.msme_number?.trim() || null,
+        active: form.vendor_status === 'Active'
+      }
       if (editing) {
-        await updatePartner(editing.id, form, shipToList)
+        await updatePartner(editing.id, payload, shipToList)
         toast.success('Vendor updated')
       } else {
-        await createPartner(form, shipToList)
+        await createPartner(payload, shipToList)
         toast.success('Vendor added')
       }
       setModalOpen(false)
@@ -163,7 +205,7 @@ export default function PartnerMaster() {
       <div className="card p-4 mb-6 flex flex-wrap gap-3 items-center">
         <div className="relative max-w-sm flex-1 min-w-[220px]">
           <Search size={14} className="absolute left-3 top-3 text-navy-300" />
-          <input className="input pl-8" placeholder="Search by Name, GSTIN, Phone, State..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} />
+          <input className="input pl-8" placeholder="Search by Code, Name, Group, GSTIN, Phone, State..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} />
         </div>
         <select className="input max-w-[220px]" value={companyFilter} onChange={(e) => { setCompanyFilter(e.target.value); setPage(1) }}>
           <option value="">All companies (any allocation)</option>
@@ -183,7 +225,7 @@ export default function PartnerMaster() {
               <table className="table-base">
                 <thead>
                   <tr>
-                    <th>Name</th><th>Company</th><th>GSTIN</th><th>State</th><th>Bill To</th><th>Default Ship To</th><th>Contact</th><th>Status</th><th></th>
+                    <th>Code</th><th>Name</th><th>Group</th><th>Company</th><th>GSTIN</th><th>State</th><th>Bill To</th><th>Default Ship To</th><th>Contact</th><th>Status</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -191,14 +233,16 @@ export default function PartnerMaster() {
                     const def = p.partner_ship_to?.find((s) => s.is_default) || p.partner_ship_to?.[0]
                     return (
                       <tr key={p.id}>
+                        <td className="text-xs font-semibold text-navy-500">{p.vendor_code || '-'}</td>
                         <td className="font-medium text-navy">{p.name}</td>
+                        <td className="text-xs">{p.vendor_group || '-'}</td>
                         <td><span className={`badge ${p.company_location_id ? 'bg-navy-100 text-navy-600' : 'bg-forest-100 text-forest-600'}`}>{p.company_location_id ? (locationsById[p.company_location_id] || 'Unknown') : 'All Companies'}</span></td>
                         <td className="text-xs">{p.gstin || '-'}</td>
                         <td className="text-xs">{p.bill_to_state || '-'}</td>
                         <td className="text-xs max-w-[160px] truncate">{[p.bill_to_address_line1, p.bill_to_city].filter(Boolean).join(', ') || '-'}</td>
                         <td className="text-xs max-w-[160px] truncate">{def ? `${def.ship_to_name || ''} - ${def.city || ''}` : '-'}</td>
                         <td className="text-xs">{p.phone || p.email || '-'}</td>
-                        <td><span className={`badge ${p.active ? 'bg-forest-100 text-forest-600' : 'bg-navy-100 text-navy-500'}`}>{p.active ? 'Active' : 'Inactive'}</span></td>
+                        <td><span className={`badge ${statusBadge(p.vendor_status || (p.active ? 'Active' : 'On Hold'))}`}>{p.vendor_status || (p.active ? 'Active' : 'On Hold')}</span></td>
                         <td>
                           <div className="flex gap-2">
                             <button onClick={() => openView(p)} className="text-navy-400 hover:text-navy text-xs">View</button>
@@ -218,62 +262,120 @@ export default function PartnerMaster() {
       </div>
 
       {modalOpen && (
-        <div className="fixed inset-0 z-[90] bg-navy-900/50 flex items-center justify-center p-4">
-          <div className="card w-full max-w-3xl p-5 max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-navy">{viewOnly ? 'View' : editing ? 'Edit' : 'Add'} Vendor</h3>
-              <button onClick={() => setModalOpen(false)} className="text-navy-300 hover:text-navy-600"><X size={18} /></button>
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-navy-900/50 p-4">
+          <div className="card bg-white flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden !p-0">
+            {/* Title bar */}
+            <div className="flex items-center justify-between bg-navy px-5 py-3">
+              <h3 className="text-sm font-semibold tracking-wide text-white">
+                Vendor Master Data <span className="font-normal text-white/60">- {viewOnly ? 'View' : editing ? 'Edit' : 'New'}</span>
+              </h3>
+              <button onClick={() => setModalOpen(false)} className="text-white/70 hover:text-white"><X size={18} /></button>
             </div>
 
-            <h4 className="text-xs font-semibold uppercase text-gold-600 mb-2">Basic Information</h4>
-            <div className="grid grid-cols-2 gap-3 mb-5">
-              <Field label="Name *" error={errors.name}>
-                <input disabled={viewOnly} className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-              </Field>
-              <Field label="Short Name">
-                <input disabled={viewOnly} className="input" value={form.short_name} onChange={(e) => setForm({ ...form, short_name: e.target.value })} />
-              </Field>
-              <Field label="Company" hint="Which company this vendor is allocated to. Leave as All Companies to make it available everywhere.">
-                <select disabled={viewOnly} className="input" value={form.company_location_id || ''} onChange={(e) => setForm({ ...form, company_location_id: e.target.value || null })}>
-                  <option value="">All Companies</option>
-                  {locations.map((l) => <option key={l.id} value={l.id}>{locationName(l)}</option>)}
-                </select>
-              </Field>
-              <Field label="GSTIN" error={errors.gstin}>
-                <input disabled={viewOnly} className="input" value={form.gstin} onChange={(e) => setForm({ ...form, gstin: e.target.value.toUpperCase() })} />
-              </Field>
-              <Field label="PAN" error={errors.pan}>
-                <input disabled={viewOnly} className="input" value={form.pan} onChange={(e) => setForm({ ...form, pan: e.target.value.toUpperCase() })} />
-              </Field>
-              <Field label="Contact Person">
-                <input disabled={viewOnly} className="input" value={form.contact_person} onChange={(e) => setForm({ ...form, contact_person: e.target.value })} />
-              </Field>
-              <Field label="Phone">
-                <input disabled={viewOnly} className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-              </Field>
-              <Field label="Email">
-                <input disabled={viewOnly} className="input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-              </Field>
-            </div>
+            <div className="flex-1 overflow-y-auto">
+              {/* Header block (always visible) */}
+              <div className="grid gap-x-10 gap-y-2.5 p-5 md:grid-cols-2">
+                <div className="space-y-2.5">
+                  <Row label="Vendor Code">
+                    <input disabled className="input bg-navy-50 font-semibold" value={form.vendor_code || ''} placeholder="Automatic (V0001...)" />
+                  </Row>
+                  <Row label="Name *" error={errors.name}>
+                    <input disabled={viewOnly} className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                  </Row>
+                  <Row label="Short Name">
+                    <input disabled={viewOnly} className="input" value={form.short_name || ''} onChange={(e) => setForm({ ...form, short_name: e.target.value })} />
+                  </Row>
+                  <Row label="Vendor Group">
+                    <input disabled={viewOnly} className="input" list="vendor-groups" placeholder="e.g. Raw Material, Transport" value={form.vendor_group || ''} onChange={(e) => setForm({ ...form, vendor_group: e.target.value })} />
+                    <datalist id="vendor-groups">{vendorGroups.map((g) => <option key={g} value={g} />)}</datalist>
+                  </Row>
+                  <Row label="Company">
+                    <select disabled={viewOnly} className="input" value={form.company_location_id || ''} onChange={(e) => setForm({ ...form, company_location_id: e.target.value || null })}>
+                      <option value="">All Companies</option>
+                      {locations.map((l) => <option key={l.id} value={l.id}>{locationName(l)}</option>)}
+                    </select>
+                  </Row>
+                </div>
 
-            <h4 className="text-xs font-semibold uppercase text-gold-600 mb-2">Bill To Address</h4>
-            <div className="grid grid-cols-2 gap-3 mb-5">
-              <Field label="Address Line 1" full><input disabled={viewOnly} className="input" value={form.bill_to_address_line1} onChange={(e) => setForm({ ...form, bill_to_address_line1: e.target.value })} /></Field>
-              <Field label="Address Line 2" full><input disabled={viewOnly} className="input" value={form.bill_to_address_line2} onChange={(e) => setForm({ ...form, bill_to_address_line2: e.target.value })} /></Field>
-              <Field label="City"><input disabled={viewOnly} className="input" value={form.bill_to_city} onChange={(e) => setForm({ ...form, bill_to_city: e.target.value })} /></Field>
-              <Field label="District"><input disabled={viewOnly} className="input" value={form.bill_to_district} onChange={(e) => setForm({ ...form, bill_to_district: e.target.value })} /></Field>
-              <Field label="State">
-                <select disabled={viewOnly} className="input" value={form.bill_to_state} onChange={(e) => setForm({ ...form, bill_to_state: e.target.value })}>
-                  <option value="">Select state</option>
-                  {INDIAN_STATES.map((s) => <option key={s.code} value={s.name}>{s.name}</option>)}
-                </select>
-              </Field>
-              <Field label="State Code"><input disabled={viewOnly} className="input" value={form.bill_to_state_code} onChange={(e) => setForm({ ...form, bill_to_state_code: e.target.value })} /></Field>
-              <Field label="PIN Code" error={errors.bill_to_pin}><input disabled={viewOnly} className="input" value={form.bill_to_pin} onChange={(e) => setForm({ ...form, bill_to_pin: e.target.value })} /></Field>
-              <Field label="Status">
-                <label className="flex items-center gap-2 text-sm mt-2"><input disabled={viewOnly} type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /> Active</label>
-              </Field>
-            </div>
+                <div className="space-y-2.5">
+                  <Row label="GSTIN" error={errors.gstin}>
+                    <input disabled={viewOnly} className="input" value={form.gstin || ''} onChange={(e) => setForm({ ...form, gstin: e.target.value.toUpperCase() })} />
+                  </Row>
+                  <Row label="PAN" error={errors.pan}>
+                    <input disabled={viewOnly} className="input" value={form.pan || ''} onChange={(e) => setForm({ ...form, pan: e.target.value.toUpperCase() })} />
+                  </Row>
+                  <Row label="Status">
+                    <select disabled={viewOnly} className="input" value={form.vendor_status || 'Active'} onChange={(e) => setForm({ ...form, vendor_status: e.target.value })}>
+                      {VENDOR_STATUSES.map((st) => <option key={st}>{st}</option>)}
+                    </select>
+                  </Row>
+                  <Row label="Rating">
+                    <select disabled={viewOnly} className="input" value={form.rating ?? ''} onChange={(e) => setForm({ ...form, rating: e.target.value })}>
+                      <option value="">Not rated</option>
+                      {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{'\u2605'.repeat(n)}{'\u2606'.repeat(5 - n)}  ({n}/5)</option>)}
+                    </select>
+                  </Row>
+                  {form.vendor_status && form.vendor_status !== 'Active' && (
+                    <p className="rounded-lg border border-gold-300 bg-gold-50 px-3 py-2 text-xs text-gold-700">
+                      This vendor will show as {form.vendor_status} in the Vendor Master list until it is set back to Active.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Tabs */}
+              <div className="border-b border-navy-100 px-5">
+                <div className="flex flex-wrap gap-1">
+                  {TABS.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setTab(t.id)}
+                      className={`-mb-px rounded-t-lg border px-4 py-2 text-xs font-semibold transition-colors ${
+                        tab === t.id
+                          ? 'border-navy-100 border-b-white bg-white text-navy'
+                          : 'border-transparent text-navy-400 hover:text-navy'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tab content */}
+              <div className="p-5">
+                {tab === 'general' && (
+                  <div className="grid min-h-[200px] content-start gap-x-10 gap-y-2.5 md:grid-cols-2">
+                    <Row label="Contact Person"><input disabled={viewOnly} className="input" value={form.contact_person || ''} onChange={(e) => setForm({ ...form, contact_person: e.target.value })} /></Row>
+                    <Row label="GST Type">
+                      <select disabled={viewOnly} className="input" value={form.gst_type || 'Regular'} onChange={(e) => setForm({ ...form, gst_type: e.target.value })}>
+                        {GST_TYPES.map((g) => <option key={g}>{g}</option>)}
+                      </select>
+                    </Row>
+                    <Row label="Phone"><input disabled={viewOnly} className="input" value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Row>
+                    <Row label="MSME / Udyam No."><input disabled={viewOnly} className="input" placeholder="UDYAM-XX-00-0000000" value={form.msme_number || ''} onChange={(e) => setForm({ ...form, msme_number: e.target.value.toUpperCase() })} /></Row>
+                    <Row label="Email"><input disabled={viewOnly} className="input" type="email" value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Row>
+                  </div>
+                )}
+
+                {tab === 'addresses' && (
+                  <div>
+                    <h4 className="text-xs font-semibold uppercase text-gold-600 mb-2">Bill To Address</h4>
+                    <div className="grid grid-cols-2 gap-3 mb-5">
+                      <Field label="Address Line 1" full><input disabled={viewOnly} className="input" value={form.bill_to_address_line1 || ''} onChange={(e) => setForm({ ...form, bill_to_address_line1: e.target.value })} /></Field>
+                      <Field label="Address Line 2" full><input disabled={viewOnly} className="input" value={form.bill_to_address_line2 || ''} onChange={(e) => setForm({ ...form, bill_to_address_line2: e.target.value })} /></Field>
+                      <Field label="City"><input disabled={viewOnly} className="input" value={form.bill_to_city || ''} onChange={(e) => setForm({ ...form, bill_to_city: e.target.value })} /></Field>
+                      <Field label="District"><input disabled={viewOnly} className="input" value={form.bill_to_district || ''} onChange={(e) => setForm({ ...form, bill_to_district: e.target.value })} /></Field>
+                      <Field label="State">
+                        <select disabled={viewOnly} className="input" value={form.bill_to_state || ''} onChange={(e) => setForm({ ...form, bill_to_state: e.target.value })}>
+                          <option value="">Select state</option>
+                          {INDIAN_STATES.map((st) => <option key={st.code} value={st.name}>{st.name}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="State Code"><input disabled={viewOnly} className="input" value={form.bill_to_state_code || ''} onChange={(e) => setForm({ ...form, bill_to_state_code: e.target.value })} /></Field>
+                      <Field label="PIN Code" error={errors.bill_to_pin}><input disabled={viewOnly} className="input" value={form.bill_to_pin || ''} onChange={(e) => setForm({ ...form, bill_to_pin: e.target.value })} /></Field>
+                    </div>
 
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-xs font-semibold uppercase text-gold-600">Ship To Addresses</h4>
@@ -308,14 +410,53 @@ export default function PartnerMaster() {
               ))}
             </div>
 
-            {!viewOnly && (
-              <div className="flex justify-end gap-2 mt-4">
-                <button className="btn-outline" onClick={() => setModalOpen(false)}>Cancel</button>
+                  </div>
+                )}
+
+                {tab === 'payment' && (
+                  <div className="grid min-h-[200px] content-start gap-x-10 gap-y-2.5 md:grid-cols-2">
+                    <div className="space-y-2.5">
+                      <h4 className="text-xs font-semibold uppercase text-gold-600">Payment &amp; Credit</h4>
+                      <Row label="Payment Terms">
+                        <select disabled={viewOnly} className="input" value={form.payment_terms || ''} onChange={(e) => setForm({ ...form, payment_terms: e.target.value })}>
+                          <option value="">Select</option>
+                          {PAYMENT_TERMS.map((t) => <option key={t}>{t}</option>)}
+                          {form.payment_terms && !PAYMENT_TERMS.includes(form.payment_terms) && <option>{form.payment_terms}</option>}
+                        </select>
+                      </Row>
+                      <Row label="Credit Days" error={errors.credit_days}>
+                        <input disabled={viewOnly} type="number" min="0" step="1" className="input" value={form.credit_days ?? ''} onChange={(e) => setForm({ ...form, credit_days: e.target.value })} />
+                      </Row>
+                      <Row label="Credit Limit" error={errors.credit_limit}>
+                        <input disabled={viewOnly} type="number" min="0" step="0.01" className="input" placeholder="Rs." value={form.credit_limit ?? ''} onChange={(e) => setForm({ ...form, credit_limit: e.target.value })} />
+                      </Row>
+                    </div>
+                    <div className="space-y-2.5">
+                      <h4 className="text-xs font-semibold uppercase text-gold-600">TDS</h4>
+                      <Row label="TDS Section">
+                        <select disabled={viewOnly} className="input" value={form.tds_section || ''} onChange={(e) => setForm({ ...form, tds_section: e.target.value })}>
+                          <option value="">Not applicable</option>
+                          {TDS_SECTIONS.map(([c, d]) => <option key={c} value={c}>{c} - {d}</option>)}
+                        </select>
+                      </Row>
+                      <Row label="TDS Rate %" error={errors.tds_rate}>
+                        <input disabled={viewOnly} type="number" min="0" max="100" step="0.01" className="input" value={form.tds_rate ?? ''} onChange={(e) => setForm({ ...form, tds_rate: e.target.value })} />
+                      </Row>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-2 border-t border-navy-100 bg-white px-5 py-3">
+              <button className="btn-outline" onClick={() => setModalOpen(false)}>{viewOnly ? 'Close' : 'Cancel'}</button>
+              {!viewOnly && (
                 <button className="btn-primary" disabled={saving} onClick={handleSave}>
                   {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -340,6 +481,18 @@ function Field({ label, children, error, full, hint }) {
       {children}
       {hint && !error && <p className="text-[11px] text-navy-400 mt-1">{hint}</p>}
       {error && <p className="text-xs text-brick mt-1">{error}</p>}
+    </div>
+  )
+}
+
+function Row({ label, children, error }) {
+  return (
+    <div>
+      <div className="grid grid-cols-[130px_1fr] items-center gap-3">
+        <label className="text-xs font-semibold text-navy-500">{label}</label>
+        <div>{children}</div>
+      </div>
+      {error && <p className="ml-[142px] mt-1 text-xs text-brick">{error}</p>}
     </div>
   )
 }
