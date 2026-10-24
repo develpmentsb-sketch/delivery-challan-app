@@ -48,3 +48,7 @@ end $$;
 
 create unique index if not exists partners_vendor_code_unique_idx
   on partners (vendor_code) where vendor_code is not null;
+
+-- Make the API (PostgREST) see the new columns immediately -> fixes
+-- "Could not find the credit_days column of partners in the schema cache"
+notify pgrst, 'reload schema';
