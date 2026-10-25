@@ -32,8 +32,8 @@ const TABS = [
 const statusBadge = (st) =>
   st === 'Blocked' ? 'bg-brick/10 text-brick' : st === 'On Hold' ? 'bg-gold-100 text-gold-700' : 'bg-forest-100 text-forest-600'
 
-const emptyPartner = () => ({
-  partner_type: 'Vendor', name: '', short_name: '', gstin: '', pan: '', contact_person: '', phone: '', email: '',
+const emptyPartner = (type = 'Vendor') => ({
+  partner_type: type, name: '', short_name: '', gstin: '', pan: '', contact_person: '', phone: '', email: '',
   bill_to_address_line1: '', bill_to_address_line2: '', bill_to_city: '', bill_to_district: '',
   bill_to_state: '', bill_to_state_code: '', bill_to_pin: '', company_location_id: null, active: true,
   vendor_code: '', vendor_group: '', rating: '', vendor_status: 'Active', gst_type: 'Regular', msme_number: '',
@@ -42,7 +42,10 @@ const emptyPartner = () => ({
 
 const emptyShipTo = () => ({ ship_to_name: '', address_line1: '', address_line2: '', city: '', district: '', state: '', state_code: '', pin_code: '', gstin: '', is_default: false })
 
-export default function PartnerMaster() {
+export default function PartnerMaster({ partnerType = 'Vendor' }) {
+  const isCustomer = partnerType === 'Customer'
+  const noun = partnerType // 'Vendor' or 'Customer'
+  const nounLc = noun.toLowerCase()
   const toast = useToast()
   const [loading, setLoading] = useState(true)
   const [partners, setPartners] = useState([])
@@ -52,7 +55,7 @@ export default function PartnerMaster() {
   const [page, setPage] = useState(1)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState(emptyPartner())
+  const [form, setForm] = useState(emptyPartner(partnerType))
   const [shipToList, setShipToList] = useState([])
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
@@ -77,13 +80,13 @@ export default function PartnerMaster() {
     setLoading(true)
     try {
       const [vendors, locs] = await Promise.all([
-        listPartners({ type: 'Vendor' }),
+        listPartners({ type: partnerType }),
         listLocations().catch(() => [])
       ])
       setPartners(vendors)
       setLocations(locs)
     } catch (err) {
-      toast.error(err.message || 'Failed to load Vendor Master')
+      toast.error(err.message || `Failed to load ${noun} Master`)
     } finally {
       setLoading(false)
     }
@@ -115,7 +118,7 @@ export default function PartnerMaster() {
     return filtered.slice(start, start + PAGE_SIZE)
   }, [filtered, page])
 
-  function openCreate() { setEditing(null); setForm(emptyPartner()); setShipToList([]); setErrors({}); setViewOnly(false); setTab('general'); setTdsAuto(false); setPasteOpen(false); setPasteText(''); setModalOpen(true) }
+  function openCreate() { setEditing(null); setForm(emptyPartner(partnerType)); setShipToList([]); setErrors({}); setViewOnly(false); setTab('general'); setTdsAuto(false); setPasteOpen(false); setPasteText(''); setModalOpen(true) }
   function openEdit(p) { setEditing(p); setForm(p); setShipToList(p.partner_ship_to || []); setErrors({}); setViewOnly(false); setTab('general'); setTdsAuto(false); setModalOpen(true) }
   function openView(p) { setEditing(p); setForm(p); setShipToList(p.partner_ship_to || []); setErrors({}); setViewOnly(true); setTab('general'); setTdsAuto(false); setModalOpen(true) }
 
@@ -188,8 +191,8 @@ export default function PartnerMaster() {
     setSaving(true)
     try {
       if (form.gstin) {
-        const dup = await isDuplicateGSTIN(form.gstin, editing?.id)
-        if (dup) { setErrors({ gstin: 'This GSTIN is already used by another vendor' }); setSaving(false); return }
+        const dup = await isDuplicateGSTIN(form.gstin, editing?.id, partnerType)
+        if (dup) { setErrors({ gstin: `This GSTIN is already used by another ${nounLc}` }); setSaving(false); return }
       }
       // Clean the new fields: blanks become null, "active" follows the vendor status, the code is automatic
       const { vendor_code, ...rest } = form
@@ -208,10 +211,10 @@ export default function PartnerMaster() {
       }
       if (editing) {
         await updatePartner(editing.id, payload, shipToList)
-        toast.success('Vendor updated')
+        toast.success(`${noun} updated`)
       } else {
         await createPartner(payload, shipToList)
-        toast.success('Vendor added')
+        toast.success(`${noun} added`)
       }
       setModalOpen(false)
       load()
@@ -238,8 +241,8 @@ export default function PartnerMaster() {
     if (!file) return
     try {
       const rows = await readExcelFile(file)
-      const result = await bulkImportPartners(rows, locations)
-      toast.success(`Imported ${result.imported} new, updated ${result.updated} vendor(s)`)
+      const result = await bulkImportPartners(rows, locations, partnerType)
+      toast.success(`Imported ${result.imported} new, updated ${result.updated} ${nounLc}(s)`)
       load()
     } catch (err) {
       toast.error(err.message || 'Failed to import file')
@@ -251,8 +254,8 @@ export default function PartnerMaster() {
   return (
     <div>
       <Header
-        title="Vendor Master"
-        subtitle="Manage vendors, their addresses, and which company they're allocated to"
+        title={`${noun} Master`}
+        subtitle={`Manage ${nounLc}s, their addresses, and which company they're allocated to`}
         actions={
           <>
             <label className="btn-outline cursor-pointer">
@@ -262,7 +265,7 @@ export default function PartnerMaster() {
             <button className="btn-outline" onClick={() => (partners.length ? exportPartnersToExcel(partners, locationsById) : toast.info('Nothing to export'))}>
               <FileSpreadsheet size={16} /> Export Excel
             </button>
-            <button className="btn-gold" onClick={openCreate}><Plus size={16} /> Add Vendor</button>
+            <button className="btn-gold" onClick={openCreate}><Plus size={16} /> Add {noun}</button>
           </>
         }
       />
@@ -283,7 +286,7 @@ export default function PartnerMaster() {
         {loading ? (
           <LoadingSpinner />
         ) : filtered.length === 0 ? (
-          <EmptyState title="No records found" description="Add your first vendor, or import a list from Excel." action={<button className="btn-primary mt-2" onClick={openCreate}><Plus size={16} /> Add Vendor</button>} />
+          <EmptyState title="No records found" description={`Add your first ${nounLc}, or import a list from Excel.`} action={<button className="btn-primary mt-2" onClick={openCreate}><Plus size={16} /> Add {noun}</button>} />
         ) : (
           <>
             <div className="overflow-x-auto">
@@ -332,7 +335,7 @@ export default function PartnerMaster() {
             {/* Title bar */}
             <div className="flex items-center justify-between bg-navy px-5 py-3">
               <h3 className="text-sm font-semibold tracking-wide text-white">
-                Vendor Master Data <span className="font-normal text-white/60">- {viewOnly ? 'View' : editing ? 'Edit' : 'New'}</span>
+                {noun} Master Data <span className="font-normal text-white/60">- {viewOnly ? 'View' : editing ? 'Edit' : 'New'}</span>
               </h3>
               <button onClick={() => setModalOpen(false)} className="text-white/70 hover:text-white"><X size={18} /></button>
             </div>
@@ -341,8 +344,8 @@ export default function PartnerMaster() {
               {/* Header block (always visible) */}
               <div className="grid gap-x-10 gap-y-2.5 p-5 md:grid-cols-2">
                 <div className="space-y-2.5">
-                  <Row label="Vendor Code">
-                    <input disabled className="input bg-navy-50 font-semibold" value={form.vendor_code || ''} placeholder="Automatic (V0001...)" />
+                  <Row label={`${noun} Code`}>
+                    <input disabled className="input bg-navy-50 font-semibold" value={form.vendor_code || ''} placeholder={`Automatic (${isCustomer ? 'C0001' : 'V0001'}...)`} />
                   </Row>
                   <Row label="Name *" error={errors.name}>
                     <input disabled={viewOnly} className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -350,8 +353,8 @@ export default function PartnerMaster() {
                   <Row label="Short Name">
                     <input disabled={viewOnly} className="input" value={form.short_name || ''} onChange={(e) => setForm({ ...form, short_name: e.target.value })} />
                   </Row>
-                  <Row label="Vendor Group">
-                    <input disabled={viewOnly} className="input" list="vendor-groups" placeholder="e.g. Raw Material, Transport" value={form.vendor_group || ''} onChange={(e) => setForm({ ...form, vendor_group: e.target.value })} />
+                  <Row label={`${noun} Group`}>
+                    <input disabled={viewOnly} className="input" list="vendor-groups" placeholder={isCustomer ? 'e.g. OEM, Dealer, Export' : 'e.g. Raw Material, Transport'} value={form.vendor_group || ''} onChange={(e) => setForm({ ...form, vendor_group: e.target.value })} />
                     <datalist id="vendor-groups">{vendorGroups.map((g) => <option key={g} value={g} />)}</datalist>
                   </Row>
                   <Row label="Company">
@@ -399,7 +402,7 @@ export default function PartnerMaster() {
                   </Row>
                   {form.vendor_status && form.vendor_status !== 'Active' && (
                     <p className="rounded-lg border border-gold-300 bg-gold-50 px-3 py-2 text-xs text-gold-700">
-                      This vendor will show as {form.vendor_status} in the Vendor Master list until it is set back to Active.
+                      This {nounLc} will show as {form.vendor_status} in the {noun} Master list until it is set back to Active.
                     </p>
                   )}
                 </div>
@@ -513,7 +516,7 @@ export default function PartnerMaster() {
                         <input disabled={viewOnly} type="number" min="0" step="0.01" className="input" placeholder="Rs." value={form.credit_limit ?? ''} onChange={(e) => setForm({ ...form, credit_limit: e.target.value })} />
                       </Row>
                     </div>
-                    <div className="space-y-2.5">
+                    {!isCustomer && <div className="space-y-2.5">
                       <h4 className="text-xs font-semibold uppercase text-gold-600">TDS</h4>
                       <Row label="TDS Section">
                         <select disabled={viewOnly} className="input" value={form.tds_section || ''} onChange={(e) => {
@@ -532,7 +535,7 @@ export default function PartnerMaster() {
                       {tdsHint?.note && !viewOnly && (
                         <p className="ml-[142px] text-[11px] text-navy-400">{tdsAuto ? 'Auto-filled: ' : 'Suggested: '}{tdsHint.note}</p>
                       )}
-                    </div>
+                    </div>}
                   </div>
                 )}
               </div>
