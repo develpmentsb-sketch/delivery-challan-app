@@ -18,7 +18,7 @@ const todayStr = () => { const d = new Date(); const p = (n) => String(n).padSta
 const dmy = (s) => (s ? `${s.slice(8, 10)}-${s.slice(5, 7)}-${s.slice(0, 4)}` : '')
 const blankLine = (side) => ({ name: '', side, amount: '' })
 
-export default function VouchersTab({ company, fy, groups, ledgers, canWrite, canDelete }) {
+export default function VouchersTab({ company, fy, groups, ledgers, canWrite, canDelete, onOpenInvoice }) {
   const toast = useToast()
   const gi = useMemo(() => indexGroups(groups), [groups])
   const infos = useMemo(() => ledgerInfos(ledgers.filter((l) => l.active !== false), gi), [ledgers, gi])
@@ -57,7 +57,7 @@ export default function VouchersTab({ company, fy, groups, ledgers, canWrite, ca
   }
 
   function openExisting(v) {
-    if (INVOICE_TYPES.includes(v.voucher_type)) { toast.info('Sales and Purchase entries are changed in the Sales & Purchase Invoices tab'); return }
+    if (INVOICE_TYPES.includes(v.voucher_type)) { onOpenInvoice?.(v); return }
     const es = [...(v.acc_entries || [])].sort((a, b) => a.line_no - b.line_no)
     const toLine = (e) => ({ name: nameById[e.ledger_id] || '', side: Number(e.debit) > 0 ? 'Dr' : 'Cr', amount: String(Number(e.debit) || Number(e.credit)) })
     const headerSide = v.voucher_type === 'Receipt' ? 'Dr' : 'Cr'

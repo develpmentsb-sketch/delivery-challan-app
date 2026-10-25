@@ -30,6 +30,7 @@ export default function Accounting() {
   const [loading, setLoading] = useState(true)
   const [booksStart, setBooksStart] = useState(fyRange(fyOf(todayStr())).from)
   const [settingUp, setSettingUp] = useState(false)
+  const [invTarget, setInvTarget] = useState(null) // a Sales / Purchase voucher opened from the Day Book
 
   useEffect(() => {
     listLocations().then((l) => { setLocations(l); if (l[0]) setCompany(l[0].id); else setLoading(false) })
@@ -107,8 +108,8 @@ export default function Accounting() {
               </button>
             ))}
           </div>
-          {tab === 'daybook' && <VouchersTab key={`${company}-${fy}`} company={company} fy={fy} groups={groups} ledgers={ledgers} canWrite={canWrite} canDelete={canDelete} />}
-          {tab === 'invoices' && <InvoicesTab key={`${company}-${fy}`} company={company} companyInfo={company_} companyName={companyName} fy={fy} groups={groups} ledgers={ledgers} canWrite={canWrite} canDelete={canDelete} reload={() => loadCompany(company)} />}
+          {tab === 'daybook' && <VouchersTab key={`${company}-${fy}`} company={company} fy={fy} groups={groups} ledgers={ledgers} canWrite={canWrite} canDelete={canDelete} onOpenInvoice={(v) => { setInvTarget(v); setTab('invoices') }} />}
+          {tab === 'invoices' && <InvoicesTab key={`${company}-${fy}`} company={company} companyInfo={company_} companyName={companyName} fy={fy} groups={groups} ledgers={ledgers} canWrite={canWrite} canDelete={canDelete} reload={() => loadCompany(company)} target={invTarget} clearTarget={() => setInvTarget(null)} />}
           {tab === 'ledgers' && <LedgersTab company={company} groups={groups} ledgers={ledgers} canWrite={canWrite} canDelete={canDelete} reload={() => loadCompany(company)} />}
           {tab === 'reports' && <ReportsTab key={`${company}-${fy}`} company={company} companyName={companyName} fy={fy} settings={settings} groups={groups} ledgers={ledgers} canWrite={canWrite} />}
         </>

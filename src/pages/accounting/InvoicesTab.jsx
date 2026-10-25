@@ -24,7 +24,7 @@ const readItem = (o) => ({
 const addressOf = (p) => (p ? [p.bill_to_address_line1, p.bill_to_address_line2, p.bill_to_city, p.bill_to_district, p.bill_to_state, p.bill_to_pin].filter(Boolean).join(', ') : '')
 const stateCodeOf = (name) => INDIAN_STATES.find((s) => s.name === name)?.code
 
-export default function InvoicesTab({ company, companyInfo, companyName, fy, groups, ledgers, canWrite, canDelete, reload }) {
+export default function InvoicesTab({ company, companyInfo, companyName, fy, groups, ledgers, canWrite, canDelete, reload, target, clearTarget }) {
   const toast = useToast()
   const range = fyRange(fy)
   const gi = useMemo(() => indexGroups(groups), [groups])
@@ -32,7 +32,8 @@ export default function InvoicesTab({ company, companyInfo, companyName, fy, gro
   const nameById = useMemo(() => Object.fromEntries(ledgers.map((l) => [l.id, l.name])), [ledgers])
   const idByName = useMemo(() => Object.fromEntries(ledgers.map((l) => [l.name.trim().toLowerCase(), l.id])), [ledgers])
 
-  const [kind, setKind] = useState('Sales')
+  const [kind, setKind] = useState(target?.voucher_type || 'Sales')
+  const [loadedKind, setLoadedKind] = useState('')
   const [invoices, setInvoices] = useState([])
   const [partners, setPartners] = useState({})
   const [items, setItems] = useState([])
@@ -55,7 +56,7 @@ export default function InvoicesTab({ company, companyInfo, companyName, fy, gro
       setInvoices(inv)
       setItems(its.map(readItem).filter((x) => x.name))
       setPartners(Object.fromEntries(ps.map((p) => [p.id, p])))
-    } catch (e) { toast.error(e.message || 'Could not load invoices') } finally { setLoading(false) }
+    } catch (e) { toast.error(e.message || 'Could not load invoices') } finally { setLoading(false); setLoadedKind(kind) }
   }
   useEffect(() => { load() }, [company, fy, kind]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -128,6 +129,15 @@ export default function InvoicesTab({ company, companyInfo, companyName, fy, gro
     if (it.gst !== '' && GST_RATES.includes(Number(it.gst))) patch.gst_rate = String(Number(it.gst))
     setLine(i, patch)
   }
+  // Opened from the Day Book: show that invoice as soon as the list for its type has loaded.
+  useEffect(() => {
+    if (!target || loading || loadedKind !== target.voucher_type || kind !== target.voucher_type) return
+    const inv = invoices.find((i) => i.voucher_id === target.id)
+    if (inv) openExisting(inv)
+    else toast.info('That invoice was not found')
+    clearTarget?.()
+  }, [target, loading, loadedKind, kind, invoices]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const setLine = (i, patch) => setForm((f) => ({ ...f, lines: f.lines.map((l, k) => (k === i ? { ...l, ...patch } : l)) }))
 
   const calc = useMemo(() => (form ? calcInvoice(form.lines, form.supply, form.round) : null), [form])
