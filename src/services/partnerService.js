@@ -71,6 +71,44 @@ export async function getPartnerBalances() {
   return data || []
 }
 
+// Ledger statement of a customer / vendor: one block per company ledger, with every entry.
+export async function getPartnerLedger(partnerId) {
+  const { data: ledgers, error } = await supabase
+    .from('acc_ledgers').select('id,name,company_id,opening_balance,opening_type').eq('partner_id', partnerId)
+  if (error) throw error
+  const out = []
+  for (const l of ledgers || []) {
+    const entries = []
+    for (let from = 0; ; from += 1000) {
+      const { data, error: e1 } = await supabase
+        .from('acc_entries')
+        .select('id,debit,credit,line_no,voucher_id, acc_vouchers!inner(voucher_date,voucher_type,voucher_no,narration)')
+        .eq('ledger_id', l.id).order('id').range(from, from + 999)
+      if (e1) throw e1
+      entries.push(...data)
+      if (data.length < 1000) break
+    }
+    // names of the other ledgers in each voucher, shown as "Particulars"
+    const others = {}
+    const ids = [...new Set(entries.map((e) => e.voucher_id))]
+    for (let i = 0; i < ids.length; i += 150) {
+      const { data, error: e2 } = await supabase
+        .from('acc_entries').select('voucher_id, acc_ledgers(name)').in('voucher_id', ids.slice(i, i + 150)).neq('ledger_id', l.id)
+      if (e2) throw e2
+      data.forEach((r) => { if (r.acc_ledgers?.name) (others[r.voucher_id] = others[r.voucher_id] || new Set()).add(r.acc_ledgers.name) })
+    }
+    out.push({
+      ledger: l,
+      entries: entries.map((e) => ({
+        date: e.acc_vouchers.voucher_date, voucher: `${e.acc_vouchers.voucher_type} ${e.acc_vouchers.voucher_no}`,
+        narration: e.acc_vouchers.narration || '', particulars: [...(others[e.voucher_id] || [])].join(', '),
+        debit: Number(e.debit), credit: Number(e.credit), line: e.line_no
+      }))
+    })
+  }
+  return out
+}
+
 export async function isDuplicateGSTIN(gstin, excludeId = null, type = 'Vendor') {
   if (!gstin) return false
   // Same GSTIN may be both a vendor and a customer, so only compare within the same type

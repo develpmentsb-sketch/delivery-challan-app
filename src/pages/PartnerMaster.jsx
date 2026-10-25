@@ -11,6 +11,7 @@ import { validatePartner } from '../utils/validation'
 import { exportPartnersToExcel, readExcelFile } from '../utils/excelExport'
 import { INDIAN_STATES } from '../lib/constants'
 import { useToast } from '../context/ToastContext'
+import PartnerLedgerModal from '../components/PartnerLedgerModal'
 import { suggestTds } from '../utils/tds'
 import { gstinStatus, gstinDetails, parseGstPortalText } from '../utils/gst'
 
@@ -50,6 +51,7 @@ export default function PartnerMaster({ partnerType = 'Vendor' }) {
   const [loading, setLoading] = useState(true)
   const [partners, setPartners] = useState([])
   const [locations, setLocations] = useState([])
+  const [ledgerFor, setLedgerFor] = useState(null)
   const [balances, setBalances] = useState({}) // partner id -> [{ company_id, balance }]
   const [search, setSearch] = useState('')
   const [companyFilter, setCompanyFilter] = useState('')
@@ -315,7 +317,11 @@ export default function PartnerMaster({ partnerType = 'Vendor' }) {
                         <td className="text-xs max-w-[160px] truncate">{[p.bill_to_address_line1, p.bill_to_city].filter(Boolean).join(', ') || '-'}</td>
                         <td className="text-xs max-w-[160px] truncate">{def ? `${def.ship_to_name || ''} - ${def.city || ''}` : '-'}</td>
                         <td className="text-xs">{p.phone || p.email || '-'}</td>
-                        <td className="text-right text-xs tabular-nums">{renderBalance(balances[p.id], locationsById)}</td>
+                        <td className="text-right text-xs tabular-nums">
+                          {balances[p.id]?.length ? (
+                            <button type="button" className="font-semibold hover:underline" title="Click to open the ledger" onClick={() => setLedgerFor(p)}>{renderBalance(balances[p.id], locationsById)}</button>
+                          ) : renderBalance(balances[p.id], locationsById)}
+                        </td>
                         <td><span className={`badge ${statusBadge(p.vendor_status || (p.active ? 'Active' : 'On Hold'))}`}>{p.vendor_status || (p.active ? 'Active' : 'On Hold')}</span></td>
                         <td>
                           <div className="flex gap-2">
@@ -559,6 +565,8 @@ export default function PartnerMaster({ partnerType = 'Vendor' }) {
           </div>
         </div>
       )}
+
+      {ledgerFor && <PartnerLedgerModal partner={ledgerFor} companyNames={locationsById} onClose={() => setLedgerFor(null)} />}
 
       <ConfirmDialog
         open={Boolean(toDelete)}
