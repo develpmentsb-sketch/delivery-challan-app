@@ -7,6 +7,7 @@ import { listVouchers, saveVoucher, deleteVoucher } from '../../services/account
 import { indexGroups, ledgerInfos, fyRange, inr } from '../../utils/accounting'
 
 const TYPES = ['Payment', 'Receipt', 'Journal', 'Contra']
+const INVOICE_TYPES = ['Sales', 'Purchase']
 const HELP = {
   Payment: 'Money going out. Pick the cash / bank account it is paid from, then the ledgers that are debited.',
   Receipt: 'Money coming in. Pick the cash / bank account it is received in, then the ledgers that are credited.',
@@ -56,6 +57,7 @@ export default function VouchersTab({ company, fy, groups, ledgers, canWrite, ca
   }
 
   function openExisting(v) {
+    if (INVOICE_TYPES.includes(v.voucher_type)) { toast.info('Sales and Purchase entries are changed in the Sales & Purchase Invoices tab'); return }
     const es = [...(v.acc_entries || [])].sort((a, b) => a.line_no - b.line_no)
     const toLine = (e) => ({ name: nameById[e.ledger_id] || '', side: Number(e.debit) > 0 ? 'Dr' : 'Cr', amount: String(Number(e.debit) || Number(e.credit)) })
     const headerSide = v.voucher_type === 'Receipt' ? 'Dr' : 'Cr'
@@ -120,7 +122,7 @@ export default function VouchersTab({ company, fy, groups, ledgers, canWrite, ca
       <div className="card mb-4 flex flex-wrap items-center gap-3 p-4">
         {canWrite && TYPES.map((t) => <button key={t} className={t === 'Payment' ? 'btn-gold' : 'btn-outline'} onClick={() => openNew(t)}><Plus size={16} /> {t}</button>)}
         <select className="input max-w-[160px]" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-          <option value="">All types</option>{TYPES.map((t) => <option key={t}>{t}</option>)}
+          <option value="">All types</option>{[...TYPES, ...INVOICE_TYPES].map((t) => <option key={t}>{t}</option>)}
         </select>
         <input className="input max-w-xs flex-1" placeholder="Search voucher no, ledger, narration..." value={q} onChange={(e) => setQ(e.target.value)} />
       </div>

@@ -124,3 +124,57 @@ export async function saveClosingStock(company, fy, value) {
     .upsert({ company_id: company, fy, closing_stock: Number(value || 0) }, { onConflict: 'company_id,fy' })
   if (error) throw error
 }
+
+// ---------------- Sales & Purchase invoices ----------------
+export const listInvoices = (company, kind, from, to) =>
+  fetchAll(() =>
+    supabase.from('acc_invoices').select('*, acc_invoice_lines(*)')
+      .eq('company_id', company).eq('kind', kind).gte('invoice_date', from).lte('invoice_date', to)
+      .order('invoice_date', { ascending: false }).order('invoice_no', { ascending: false })
+  )
+
+export const listPartnersLite = () =>
+  fetchAll(() => supabase.from('partners')
+    .select('id,name,partner_type,gstin,bill_to_address_line1,bill_to_address_line2,bill_to_city,bill_to_district,bill_to_state,bill_to_state_code,bill_to_pin').order('name'))
+
+// Finds (or creates) the Sales / Purchases, GST and Round Off ledgers an invoice posts to.
+export async function ensureInvoiceLedgers(company, kind, groups, ledgers) {
+  const gid = (n) => groups.find((g) => g.name === n)?.id
+  const find = (n) => ledgers.find((l) => l.name.trim().toLowerCase() === n.toLowerCase())
+  const want = kind === 'Sales'
+    ? { main: ['Sales', 'Sales Accounts'], cgst: ['Output CGST', 'Duties & Taxes'], sgst: ['Output SGST', 'Duties & Taxes'], igst: ['Output IGST', 'Duties & Taxes'], round: ['Round Off', 'Indirect Expenses'] }
+    : { main: ['Purchases', 'Purchase Accounts'], cgst: ['Input CGST', 'Duties & Taxes'], sgst: ['Input SGST', 'Duties & Taxes'], igst: ['Input IGST', 'Duties & Taxes'], round: ['Round Off', 'Indirect Expenses'] }
+  const out = {}
+  const toCreate = []
+  for (const [key, [name, group]] of Object.entries(want)) {
+    const ex = find(name)
+    if (ex) out[key] = ex.id
+    else {
+      if (!gid(group)) throw new Error(`The account group "${group}" is missing. Set up the accounts for this company first.`)
+      toCreate.push({ key, row: { company_id: company, name, group_id: gid(group) } })
+    }
+  }
+  if (toCreate.length) {
+    const { data, error } = await supabase.from('acc_ledgers').insert(toCreate.map((t) => t.row)).select('id,name')
+    if (error) throw error
+    toCreate.forEach((t) => { out[t.key] = data.find((d) => d.name === t.row.name)?.id })
+  }
+  return { ids: out, created: toCreate.length }
+}
+
+export async function saveInvoice(p) {
+  const { data, error } = await supabase.rpc('acc_save_invoice', {
+    p_id: p.id || null, p_company: p.company, p_kind: p.kind, p_date: p.date, p_invoice_no: p.invoiceNo, p_party: p.party,
+    p_party_gstin: p.gstin || null, p_pos: p.pos || null, p_supply: p.supply, p_due: p.due || null, p_ref: p.reference || null,
+    p_narration: p.narration || null,
+    p_lines: p.lines.map((l) => ({ description: l.description, hsn: l.hsn, qty: Number(l.qty), uom: l.uom, rate: Number(l.rate) || 0, discount_pct: Number(l.discount_pct) || 0, gst_rate: Number(l.gst_rate) || 0 })),
+    p_ledgers: p.ledgers, p_round: p.round !== false
+  })
+  if (error) {
+    const m = error.message || ''
+    if (m.includes('acc_invoices_sales_no_uidx')) throw new Error('This invoice number is already used in this financial year.')
+    if (m.includes('acc_invoices_purchase_no_uidx')) throw new Error('This supplier invoice number is already entered for this supplier.')
+    throw error
+  }
+  return data
+}

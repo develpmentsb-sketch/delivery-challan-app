@@ -10,8 +10,9 @@ import { fyOf, fyRange, fyList } from '../utils/accounting'
 import LedgersTab from './accounting/LedgersTab'
 import VouchersTab from './accounting/VouchersTab'
 import ReportsTab from './accounting/ReportsTab'
+import InvoicesTab from './accounting/InvoicesTab'
 
-const TABS = [['daybook', 'Day Book & Vouchers'], ['ledgers', 'Ledgers'], ['reports', 'Reports']]
+const TABS = [['daybook', 'Day Book & Vouchers'], ['invoices', 'Sales & Purchase Invoices'], ['ledgers', 'Ledgers'], ['reports', 'Reports']]
 const todayStr = () => { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` }
 
 export default function Accounting() {
@@ -107,6 +108,7 @@ export default function Accounting() {
             ))}
           </div>
           {tab === 'daybook' && <VouchersTab key={`${company}-${fy}`} company={company} fy={fy} groups={groups} ledgers={ledgers} canWrite={canWrite} canDelete={canDelete} />}
+          {tab === 'invoices' && <InvoicesTab key={`${company}-${fy}`} company={company} companyInfo={company_} companyName={companyName} fy={fy} groups={groups} ledgers={ledgers} canWrite={canWrite} canDelete={canDelete} reload={() => loadCompany(company)} />}
           {tab === 'ledgers' && <LedgersTab company={company} groups={groups} ledgers={ledgers} canWrite={canWrite} canDelete={canDelete} reload={() => loadCompany(company)} />}
           {tab === 'reports' && <ReportsTab key={`${company}-${fy}`} company={company} companyName={companyName} fy={fy} settings={settings} groups={groups} ledgers={ledgers} canWrite={canWrite} />}
         </>
