@@ -5,7 +5,7 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import EmptyState from '../components/EmptyState'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
-import { listPartners, createPartner, updatePartner, deletePartner, isDuplicateGSTIN, bulkImportPartners } from '../services/partnerService'
+import { listPartners, createPartner, updatePartner, deletePartner, isDuplicateGSTIN, bulkImportPartners, getPartnerBalances } from '../services/partnerService'
 import { listLocations } from '../lib/locations'
 import { validatePartner } from '../utils/validation'
 import { exportPartnersToExcel, readExcelFile } from '../utils/excelExport'
@@ -50,6 +50,7 @@ export default function PartnerMaster({ partnerType = 'Vendor' }) {
   const [loading, setLoading] = useState(true)
   const [partners, setPartners] = useState([])
   const [locations, setLocations] = useState([])
+  const [balances, setBalances] = useState({}) // partner id -> [{ company_id, balance }]
   const [search, setSearch] = useState('')
   const [companyFilter, setCompanyFilter] = useState('')
   const [page, setPage] = useState(1)
@@ -79,11 +80,15 @@ export default function PartnerMaster({ partnerType = 'Vendor' }) {
   async function load() {
     setLoading(true)
     try {
-      const [vendors, locs] = await Promise.all([
+      const [vendors, locs, bals] = await Promise.all([
         listPartners({ type: partnerType }),
-        listLocations().catch(() => [])
+        listLocations().catch(() => []),
+        getPartnerBalances().catch(() => [])
       ])
       setPartners(vendors)
+      const byPartner = {}
+      bals.forEach((b) => { (byPartner[b.partner_id] = byPartner[b.partner_id] || []).push({ company_id: b.company_id, balance: Number(b.balance) }) })
+      setBalances(byPartner)
       setLocations(locs)
     } catch (err) {
       toast.error(err.message || `Failed to load ${noun} Master`)
@@ -293,7 +298,7 @@ export default function PartnerMaster({ partnerType = 'Vendor' }) {
               <table className="table-base">
                 <thead>
                   <tr>
-                    <th>Code</th><th>Name</th><th>Group</th><th>Company</th><th>GSTIN</th><th>State</th><th>Bill To</th><th>Default Ship To</th><th>Contact</th><th>Status</th><th></th>
+                    <th>Code</th><th>Name</th><th>Group</th><th>Company</th><th>GSTIN</th><th>State</th><th>Bill To</th><th>Default Ship To</th><th>Contact</th><th className="text-right">Ledger Balance</th><th>Status</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -310,6 +315,7 @@ export default function PartnerMaster({ partnerType = 'Vendor' }) {
                         <td className="text-xs max-w-[160px] truncate">{[p.bill_to_address_line1, p.bill_to_city].filter(Boolean).join(', ') || '-'}</td>
                         <td className="text-xs max-w-[160px] truncate">{def ? `${def.ship_to_name || ''} - ${def.city || ''}` : '-'}</td>
                         <td className="text-xs">{p.phone || p.email || '-'}</td>
+                        <td className="text-right text-xs tabular-nums">{renderBalance(balances[p.id], locationsById)}</td>
                         <td><span className={`badge ${statusBadge(p.vendor_status || (p.active ? 'Active' : 'On Hold'))}`}>{p.vendor_status || (p.active ? 'Active' : 'On Hold')}</span></td>
                         <td>
                           <div className="flex gap-2">
@@ -565,6 +571,16 @@ export default function PartnerMaster({ partnerType = 'Vendor' }) {
       />
     </div>
   )
+}
+
+// Ledger balance as "1,234.00 Dr" / "1,234.00 Cr". Hover shows the split when a party has ledgers in several companies.
+function renderBalance(list, locationsById) {
+  if (!list || !list.length) return <span className="text-navy-300">-</span>
+  const fmt = (n) => `${Math.abs(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${n >= 0 ? 'Dr' : 'Cr'}`
+  const total = list.reduce((s, b) => s + b.balance, 0)
+  const title = list.length > 1 ? list.map((b) => `${locationsById[b.company_id] || 'Company'}: ${fmt(b.balance)}`).join('\n') : undefined
+  if (Math.abs(total) < 0.005) return <span className="text-navy-400" title={title}>Nil</span>
+  return <span className={total >= 0 ? 'text-forest-600' : 'text-brick'} title={title}>{fmt(total)}</span>
 }
 
 function Field({ label, children, error, full, hint }) {

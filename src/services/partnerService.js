@@ -63,6 +63,14 @@ export async function deletePartner(id) {
   if (error) throw error
 }
 
+// Ledger balance of each customer / vendor from the Accounting module (debit positive).
+// Returns [] if the accounting tables are not installed yet.
+export async function getPartnerBalances() {
+  const { data, error } = await supabase.rpc('acc_partner_balances')
+  if (error) return []
+  return data || []
+}
+
 export async function isDuplicateGSTIN(gstin, excludeId = null, type = 'Vendor') {
   if (!gstin) return false
   // Same GSTIN may be both a vendor and a customer, so only compare within the same type
