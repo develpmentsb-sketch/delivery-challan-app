@@ -30,6 +30,7 @@ create table if not exists acc_invoices (
   created_by uuid default auth.uid(),
   created_at timestamptz not null default now()
 );
+alter table acc_invoices add column if not exists party_address text;
 create index if not exists acc_invoices_company_date_idx on acc_invoices (company_id, kind, invoice_date);
 -- A sales invoice number is unique per year; a purchase invoice number is unique per supplier per year
 create unique index if not exists acc_invoices_sales_no_uidx on acc_invoices (company_id, fy, invoice_no) where kind = 'Sales';

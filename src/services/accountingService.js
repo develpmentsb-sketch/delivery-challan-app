@@ -162,6 +162,9 @@ export async function ensureInvoiceLedgers(company, kind, groups, ledgers) {
   return { ids: out, created: toCreate.length }
 }
 
+// The Item List, read loosely because it may use different column names.
+export const listItemsLite = () => fetchAll(() => supabase.from('items').select('*'))
+
 export async function saveInvoice(p) {
   const { data, error } = await supabase.rpc('acc_save_invoice', {
     p_id: p.id || null, p_company: p.company, p_kind: p.kind, p_date: p.date, p_invoice_no: p.invoiceNo, p_party: p.party,
@@ -176,5 +179,8 @@ export async function saveInvoice(p) {
     if (m.includes('acc_invoices_purchase_no_uidx')) throw new Error('This supplier invoice number is already entered for this supplier.')
     throw error
   }
+  // the address is kept on the invoice so the print stays the same even if the party changes later
+  const { error: addrErr } = await supabase.from('acc_invoices').update({ party_address: p.address || null }).eq('id', data)
+  if (addrErr && !/party_address/.test(addrErr.message)) throw addrErr
   return data
 }

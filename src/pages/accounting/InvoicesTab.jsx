@@ -5,13 +5,23 @@ import ConfirmDialog from '../../components/ConfirmDialog'
 import LoadingSpinner from '../../components/LoadingSpinner'
 import { useToast } from '../../context/ToastContext'
 import { INDIAN_STATES } from '../../lib/constants'
-import { listInvoices, listPartnersLite, ensureInvoiceLedgers, saveInvoice, deleteVoucher } from '../../services/accountingService'
+import { listInvoices, listPartnersLite, listItemsLite, ensureInvoiceLedgers, saveInvoice, deleteVoucher } from '../../services/accountingService'
 import { indexGroups, ledgerInfos, fyRange, inr } from '../../utils/accounting'
 import { GST_RATES, UOMS, blankLine, calcInvoice, amountInWords } from '../../utils/invoice'
 
 const todayStr = () => { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` }
 const dmy = (s) => (s ? `${s.slice(8, 10)}-${s.slice(5, 7)}-${s.slice(0, 4)}` : '')
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+const pick = (o, keys) => { for (const k of keys) { const v = o?.[k]; if (v !== undefined && v !== null && String(v).trim() !== '') return v } return '' }
+// Reads an Item List row whatever its column names are.
+const readItem = (o) => ({
+  name: String(pick(o, ['item_name', 'name', 'item_description', 'description', 'title', 'item'])).trim(),
+  hsn: String(pick(o, ['hsn_sac_code', 'hsn_sac', 'hsn_code', 'hsn', 'sac_code', 'sac'])).trim(),
+  uom: String(pick(o, ['uom', 'unit', 'unit_of_measure', 'unit_of_measurement'])).trim(),
+  rate: pick(o, ['rate', 'unit_price', 'selling_price', 'sale_price', 'price', 'unit_rate', 'basic_rate']),
+  gst: pick(o, ['gst_rate', 'gst_percent', 'gst', 'tax_rate', 'igst_rate', 'igst'])
+})
+const addressOf = (p) => (p ? [p.bill_to_address_line1, p.bill_to_address_line2, p.bill_to_city, p.bill_to_district, p.bill_to_state, p.bill_to_pin].filter(Boolean).join(', ') : '')
 const stateCodeOf = (name) => INDIAN_STATES.find((s) => s.name === name)?.code
 
 export default function InvoicesTab({ company, companyInfo, companyName, fy, groups, ledgers, canWrite, canDelete, reload }) {
@@ -25,6 +35,7 @@ export default function InvoicesTab({ company, companyInfo, companyName, fy, gro
   const [kind, setKind] = useState('Sales')
   const [invoices, setInvoices] = useState([])
   const [partners, setPartners] = useState({})
+  const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
   const [form, setForm] = useState(null)
@@ -40,8 +51,9 @@ export default function InvoicesTab({ company, companyInfo, companyName, fy, gro
   async function load() {
     setLoading(true)
     try {
-      const [inv, ps] = await Promise.all([listInvoices(company, kind, range.from, range.to), listPartnersLite().catch(() => [])])
+      const [inv, ps, its] = await Promise.all([listInvoices(company, kind, range.from, range.to), listPartnersLite().catch(() => []), listItemsLite().catch(() => [])])
       setInvoices(inv)
+      setItems(its.map(readItem).filter((x) => x.name))
       setPartners(Object.fromEntries(ps.map((p) => [p.id, p])))
     } catch (e) { toast.error(e.message || 'Could not load invoices') } finally { setLoading(false) }
   }
@@ -63,7 +75,7 @@ export default function InvoicesTab({ company, companyInfo, companyName, fy, gro
 
   function openNew() {
     const date = todayStr()
-    setForm({ id: null, date: date >= range.from && date <= range.to ? date : range.to, invoiceNo: '', party: '', gstin: '', pos: '', supply: 'Intra',
+    setForm({ id: null, address: '', date: date >= range.from && date <= range.to ? date : range.to, invoiceNo: '', party: '', gstin: '', pos: '', supply: 'Intra',
       due: '', reference: '', narration: '', round: true, lines: [blankLine()] })
   }
   function openExisting(inv) {
@@ -71,23 +83,50 @@ export default function InvoicesTab({ company, companyInfo, companyName, fy, gro
       description: l.description, hsn: l.hsn || '', qty: String(Number(l.qty)), uom: l.uom || '', rate: String(Number(l.rate)),
       discount_pct: String(Number(l.discount_pct)), gst_rate: String(Number(l.gst_rate))
     }))
-    setForm({ id: inv.id, date: inv.invoice_date, invoiceNo: inv.invoice_no, party: nameById[inv.party_ledger_id] || '', gstin: inv.party_gstin || '',
+    setForm({ id: inv.id, address: inv.party_address || '', date: inv.invoice_date, invoiceNo: inv.invoice_no, party: nameById[inv.party_ledger_id] || '', gstin: inv.party_gstin || '',
       pos: inv.place_of_supply || '', supply: inv.supply_type, due: inv.due_date || '', reference: inv.reference || '', narration: inv.narration || '',
       round: Math.abs(Number(inv.round_off)) > 0 || Number(inv.total) % 1 === 0, lines: lines.length ? lines : [blankLine()] })
   }
 
+  // The party's record in Customer / Vendor Master: through the ledger link, or else by matching the name.
+  function findPartner(name, led) {
+    let p = led?.partner_id ? partners[led.partner_id] : null
+    if (!p || !p.gstin) {
+      const want = kind === 'Sales' ? 'Customer' : 'Vendor'
+      const key = name.trim().toLowerCase()
+      const same = Object.values(partners).filter((x) => x.name.trim().toLowerCase() === key)
+      const best = same.find((x) => x.gstin && x.partner_type === want) || same.find((x) => x.gstin) || same.find((x) => x.partner_type === want) || same[0]
+      if (best && (!p || best.gstin)) p = best
+    }
+    return p
+  }
+
   function pickParty(name) {
     const led = partyByName[name.trim().toLowerCase()]
-    const p = led?.partner_id ? partners[led.partner_id] : null
+    const p = led ? findPartner(name, led) : null
     setForm((f) => {
       const next = { ...f, party: name }
       if (p) {
         next.gstin = p.gstin || ''
+        next.address = addressOf(p)
         next.pos = p.bill_to_state || f.pos
         next.supply = suggestSupply(p.bill_to_state, p.gstin, f.supply)
       }
       return next
     })
+  }
+
+  const itemByName = useMemo(() => Object.fromEntries(items.map((it) => [it.name.toLowerCase(), it])), [items])
+  // Typing or choosing an item from the Item List fills HSN, UOM, rate and GST %.
+  function setDescription(i, value) {
+    const it = itemByName[value.trim().toLowerCase()]
+    if (!it) return setLine(i, { description: value })
+    const patch = { description: value }
+    if (it.hsn) patch.hsn = it.hsn
+    if (it.uom) patch.uom = it.uom
+    if (it.rate !== '' && Number(it.rate) > 0) patch.rate = String(Number(it.rate))
+    if (it.gst !== '' && GST_RATES.includes(Number(it.gst))) patch.gst_rate = String(Number(it.gst))
+    setLine(i, patch)
   }
   const setLine = (i, patch) => setForm((f) => ({ ...f, lines: f.lines.map((l, k) => (k === i ? { ...l, ...patch } : l)) }))
 
@@ -104,7 +143,7 @@ export default function InvoicesTab({ company, companyInfo, companyName, fy, gro
     try {
       const { ids, created } = await ensureInvoiceLedgers(company, kind, groups, ledgers)
       await saveInvoice({ id: form.id, company, kind, date: form.date, invoiceNo: form.invoiceNo, party: led.id, gstin: form.gstin, pos: form.pos,
-        supply: form.supply, due: form.due, reference: form.reference, narration: form.narration, lines: form.lines, ledgers: ids, round: form.round })
+        supply: form.supply, address: form.address, due: form.due, reference: form.reference, narration: form.narration, lines: form.lines, ledgers: ids, round: form.round })
       toast.success(`${kind} invoice saved and posted to the books`)
       setForm(null)
       if (created) reload()
@@ -133,7 +172,7 @@ export default function InvoicesTab({ company, companyInfo, companyName, fy, gro
   function printInvoice(inv) {
     const p = partners[ledgers.find((l) => l.id === inv.party_ledger_id)?.partner_id]
     const lines = [...(inv.acc_invoice_lines || [])].sort((a, b) => a.line_no - b.line_no)
-    const addr = p ? [p.bill_to_address_line1, p.bill_to_address_line2, p.bill_to_city, p.bill_to_district, p.bill_to_state, p.bill_to_pin].filter(Boolean).join(', ') : ''
+    const addr = inv.party_address || addressOf(p)
     const title = kind === 'Sales' ? 'TAX INVOICE' : 'PURCHASE INVOICE'
     const intra = inv.supply_type === 'Intra'
     const body = lines.map((l, i) => `<tr><td>${i + 1}</td><td>${esc(l.description)}</td><td>${esc(l.hsn)}</td><td class=r>${Number(l.qty)}</td><td>${esc(l.uom)}</td><td class=r>${inr(l.rate)}</td><td class=r>${Number(l.discount_pct) || ''}</td><td class=r>${inr(l.taxable)}</td><td class=r>${Number(l.gst_rate)}%</td></tr>`).join('')
@@ -223,7 +262,9 @@ table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:4p
                   </div>
                   <div><label className="label">{kind === 'Sales' ? 'Invoice No *' : 'Supplier Invoice No *'}</label><input className="input" value={form.invoiceNo} onChange={(e) => setForm({ ...form, invoiceNo: e.target.value })} /></div>
                   <div><label className="label">Invoice Date *</label><input type="date" className="input" min={range.from} max={range.to} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
-                  <div><label className="label">Party GSTIN</label><input className="input" value={form.gstin} onChange={(e) => setForm({ ...form, gstin: e.target.value.toUpperCase() })} /></div>
+                  <div><label className="label">Party GSTIN</label><input className="input" value={form.gstin} onChange={(e) => setForm({ ...form, gstin: e.target.value.toUpperCase() })} />
+                    {form.party && partyByName[form.party.trim().toLowerCase()] && !form.gstin && <p className="mt-1 text-[11px] text-gold-700">No GSTIN is saved for this party in the {kind === 'Sales' ? 'Customer' : 'Vendor'} Master. Type it here.</p>}
+                  </div>
                   <div><label className="label">Place of Supply</label>
                     <select className="input" value={form.pos} onChange={(e) => setForm({ ...form, pos: e.target.value, supply: suggestSupply(e.target.value, form.gstin, form.supply) })}>
                       <option value="">Select state</option>{INDIAN_STATES.map((s) => <option key={s.code} value={s.name}>{s.name}</option>)}
@@ -233,6 +274,8 @@ table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:4p
                       <option value="Intra">Same state (CGST + SGST)</option><option value="Inter">Other state (IGST)</option>
                     </select></div>
                   <div><label className="label">Due Date</label><input type="date" className="input" value={form.due} onChange={(e) => setForm({ ...form, due: e.target.value })} /></div>
+                  <div className="md:col-span-4"><label className="label">{kind === 'Sales' ? 'Bill To Address' : 'Supplier Address'}</label>
+                    <textarea rows={2} className="input" placeholder="Filled from the Customer / Vendor Master when you choose the party" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
                 </div>
 
                 <div>
@@ -244,7 +287,7 @@ table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:4p
                         {form.lines.map((l, i) => (
                           <tr key={i}>
                             <td>{i + 1}</td>
-                            <td><input className="input" value={l.description} onChange={(e) => setLine(i, { description: e.target.value })} /></td>
+                            <td><input className="input" list="inv-items" placeholder="Type or choose an item" value={l.description} onChange={(e) => setDescription(i, e.target.value)} /></td>
                             <td><input className="input" value={l.hsn} onChange={(e) => setLine(i, { hsn: e.target.value })} /></td>
                             <td><input type="number" min="0" step="0.001" className="input" value={l.qty} onChange={(e) => setLine(i, { qty: e.target.value })} /></td>
                             <td><input className="input" list="inv-uom" value={l.uom} onChange={(e) => setLine(i, { uom: e.target.value })} /></td>
@@ -258,6 +301,7 @@ table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:4p
                       </tbody>
                     </table>
                   </div>
+                  <datalist id="inv-items">{items.map((it) => <option key={it.name} value={it.name} />)}</datalist>
                   <datalist id="inv-uom">{UOMS.map((u) => <option key={u} value={u} />)}</datalist>
                   {!ro && <button type="button" className="mt-2 text-xs font-semibold text-navy-500 hover:text-navy" onClick={() => setForm({ ...form, lines: [...form.lines, blankLine()] })}>+ Add item</button>}
                 </div>
