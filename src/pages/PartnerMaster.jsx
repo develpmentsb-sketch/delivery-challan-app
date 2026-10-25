@@ -12,7 +12,7 @@ import { exportPartnersToExcel, readExcelFile } from '../utils/excelExport'
 import { INDIAN_STATES } from '../lib/constants'
 import { useToast } from '../context/ToastContext'
 import { suggestTds } from '../utils/tds'
-import { gstinStatus, gstinDetails } from '../utils/gst'
+import { gstinStatus, gstinDetails, parseGstPortalText } from '../utils/gst'
 
 const PAGE_SIZE = 10
 const ALL_COMPANIES = 'all'
@@ -61,6 +61,9 @@ export default function PartnerMaster() {
   const [tab, setTab] = useState('general')
   // true while the TDS rate on screen was filled in automatically (so it can follow GSTIN / PAN changes)
   const [tdsAuto, setTdsAuto] = useState(false)
+
+  const [pasteOpen, setPasteOpen] = useState(false)
+  const [pasteText, setPasteText] = useState('')
 
   const tdsHint = useMemo(() => suggestTds(form.tds_section, form.gstin, form.pan), [form.tds_section, form.gstin, form.pan])
 
@@ -112,7 +115,7 @@ export default function PartnerMaster() {
     return filtered.slice(start, start + PAGE_SIZE)
   }, [filtered, page])
 
-  function openCreate() { setEditing(null); setForm(emptyPartner()); setShipToList([]); setErrors({}); setViewOnly(false); setTab('general'); setTdsAuto(false); setModalOpen(true) }
+  function openCreate() { setEditing(null); setForm(emptyPartner()); setShipToList([]); setErrors({}); setViewOnly(false); setTab('general'); setTdsAuto(false); setPasteOpen(false); setPasteText(''); setModalOpen(true) }
   function openEdit(p) { setEditing(p); setForm(p); setShipToList(p.partner_ship_to || []); setErrors({}); setViewOnly(false); setTab('general'); setTdsAuto(false); setModalOpen(true) }
   function openView(p) { setEditing(p); setForm(p); setShipToList(p.partner_ship_to || []); setErrors({}); setViewOnly(true); setTab('general'); setTdsAuto(false); setModalOpen(true) }
 
@@ -146,6 +149,33 @@ export default function PartnerMaster() {
     try { if (g) await navigator.clipboard.writeText(g) } catch (e) { /* clipboard may be blocked - ignore */ }
     window.open('https://services.gst.gov.in/services/searchtp', '_blank', 'noopener,noreferrer')
     toast.info(g ? 'GSTIN copied - paste it in the GST portal, enter the captcha, then copy the name and address back here' : 'GST portal opened - enter the GSTIN there')
+  }
+
+  // Fills the vendor form from text copied off the GST portal result page.
+  function applyPortalText() {
+    const r = parseGstPortalText(pasteText, INDIAN_STATES)
+    if (!r || (!r.name && !r.address1 && !r.gstin)) { toast.error('Could not read the GST result. On the portal result page press Ctrl+A, then Ctrl+C, and paste here.'); return }
+    setForm((f) => {
+      const next = { ...f }
+      if (r.gstin) next.gstin = r.gstin
+      const d = gstinDetails(next.gstin, INDIAN_STATES)
+      if (d && !next.pan) next.pan = d.pan
+      if (r.name) next.name = r.name
+      if (r.address1) next.bill_to_address_line1 = r.address1
+      if (r.address2 !== undefined && r.address1) next.bill_to_address_line2 = r.address2
+      if (r.city) next.bill_to_city = r.city
+      if (r.district) next.bill_to_district = r.district
+      if (r.state) next.bill_to_state = r.state
+      else if (d?.stateName) next.bill_to_state = d.stateName
+      if (r.stateCode) next.bill_to_state_code = r.stateCode
+      if (r.pin) next.bill_to_pin = r.pin
+      const gt = GST_TYPES.find((g) => g.toLowerCase() === (r.taxpayerType || '').toLowerCase())
+      if (gt) next.gst_type = gt
+      return next
+    })
+    setPasteOpen(false)
+    setPasteText('')
+    toast.success('Filled from GST portal - please check the details, then Save')
   }
 
   async function handleSave() {
@@ -339,6 +369,18 @@ export default function PartnerMaster() {
                       <button type="button" onClick={openGstPortal} className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-navy-500 hover:text-navy">
                         <ExternalLink size={12} /> Verify on GST portal (copies GSTIN)
                       </button>
+                    )}
+                    {!viewOnly && (
+                      <button type="button" onClick={() => setPasteOpen((v) => !v)} className="mt-1 block text-[11px] font-semibold text-gold-700 hover:text-gold-800">
+                        {pasteOpen ? 'Close' : 'Paste GST portal result here to fill name & address'}
+                      </button>
+                    )}
+                    {pasteOpen && !viewOnly && (
+                      <div className="mt-2 rounded-lg border border-gold-300 bg-gold-50 p-2">
+                        <p className="mb-1 text-[11px] text-navy-500">On the GST portal result page press <b>Ctrl+A</b>, then <b>Ctrl+C</b>, and paste below with <b>Ctrl+V</b>.</p>
+                        <textarea className="input h-24 text-xs" value={pasteText} onChange={(e) => setPasteText(e.target.value)} placeholder="Paste the portal result here" />
+                        <button type="button" className="btn-primary mt-2 py-1" disabled={!pasteText.trim()} onClick={applyPortalText}>Fill the form</button>
+                      </div>
                     )}
                   </Row>
                   <Row label="PAN" error={errors.pan}>
