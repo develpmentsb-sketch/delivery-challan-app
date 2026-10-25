@@ -12,6 +12,7 @@ import { exportPartnersToExcel, readExcelFile } from '../utils/excelExport'
 import { INDIAN_STATES } from '../lib/constants'
 import { useToast } from '../context/ToastContext'
 import { suggestTds } from '../utils/tds'
+import { gstinStatus, gstinDetails } from '../utils/gst'
 
 const PAGE_SIZE = 10
 const ALL_COMPANIES = 'all'
@@ -123,6 +124,21 @@ export default function PartnerMaster() {
     }))
   }
   function removeShipTo(idx) { setShipToList((prev) => prev.filter((_, i) => i !== idx)) }
+
+  // Typing a full valid GSTIN fills PAN, State and State Code - only the fields that are still empty.
+  function handleGstinChange(raw) {
+    const gstin = raw.toUpperCase().replace(/\s/g, '')
+    setForm((f) => {
+      const next = { ...f, gstin }
+      const d = gstinDetails(gstin, INDIAN_STATES)
+      if (d) {
+        if (!f.pan) next.pan = d.pan
+        if (!f.bill_to_state && d.stateName) next.bill_to_state = d.stateName
+        if (!f.bill_to_state_code) next.bill_to_state_code = d.stateCode
+      }
+      return next
+    })
+  }
 
   async function handleSave() {
     const { valid, errors: errs } = validatePartner(form)
@@ -309,8 +325,8 @@ export default function PartnerMaster() {
                 </div>
 
                 <div className="space-y-2.5">
-                  <Row label="GSTIN" error={errors.gstin}>
-                    <input disabled={viewOnly} className="input" value={form.gstin || ''} onChange={(e) => setForm({ ...form, gstin: e.target.value.toUpperCase() })} />
+                  <Row label="GSTIN" error={errors.gstin || (!viewOnly && gstinStatus(form.gstin) === 'invalid' ? 'This GSTIN looks wrong - please re-check it' : '')}>
+                    <input disabled={viewOnly} className="input" maxLength={15} placeholder="15-character GSTIN" value={form.gstin || ''} onChange={(e) => handleGstinChange(e.target.value)} />
                   </Row>
                   <Row label="PAN" error={errors.pan}>
                     <input disabled={viewOnly} className="input" value={form.pan || ''} onChange={(e) => setForm({ ...form, pan: e.target.value.toUpperCase() })} />
