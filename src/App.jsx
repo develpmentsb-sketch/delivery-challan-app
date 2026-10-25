@@ -49,7 +49,8 @@ export default function App() {
       <Route path="/challan/:id/edit" element={<ProtectedRoute perm="challan.edit"><DeliveryChallanForm /></ProtectedRoute>} />
       <Route path="/master-list" element={<ProtectedRoute perm="challan.view"><MasterList /></ProtectedRoute>} />
       <Route path="/items" element={<ProtectedRoute perm="items.view"><ItemMaster /></ProtectedRoute>} />
-      <Route path="/partners" element={<ProtectedRoute perm="partners.view"><PartnerMaster /></ProtectedRoute>} />
+      <Route path="/partners" element={<ProtectedRoute perm="partners.view"><PartnerMaster key="Vendor" partnerType="Vendor" /></ProtectedRoute>} />
+      <Route path="/customers" element={<ProtectedRoute perm="partners.view"><PartnerMaster key="Customer" partnerType="Customer" /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute perm="settings.view"><Settings /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute perm="users.approve"><Users /></ProtectedRoute>} />
       <Route path="/backup-restore" element={<ProtectedRoute perm="backup.use"><BackupRestorePage /></ProtectedRoute>} />

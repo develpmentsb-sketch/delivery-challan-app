@@ -63,9 +63,10 @@ export async function deletePartner(id) {
   if (error) throw error
 }
 
-export async function isDuplicateGSTIN(gstin, excludeId = null) {
+export async function isDuplicateGSTIN(gstin, excludeId = null, type = 'Vendor') {
   if (!gstin) return false
-  let query = supabase.from('partners').select('id').eq('gstin', gstin)
+  // Same GSTIN may be both a vendor and a customer, so only compare within the same type
+  let query = supabase.from('partners').select('id').eq('gstin', gstin).eq('partner_type', type)
   if (excludeId) query = query.neq('id', excludeId)
   const { data, error } = await query
   if (error) throw error
@@ -80,7 +81,7 @@ export async function isDuplicateGSTIN(gstin, excludeId = null) {
  * company_locations id. Rows are matched to an existing vendor by GSTIN
  * (updated in place); rows without a GSTIN are always inserted as new.
  */
-export async function bulkImportPartners(rows, locations = []) {
+export async function bulkImportPartners(rows, locations = [], type = 'Vendor') {
   const locByName = new Map(
     locations.map((l) => [String(l.legal_name || l.location_name || '').trim().toLowerCase(), l.id])
   )
@@ -95,7 +96,7 @@ export async function bulkImportPartners(rows, locations = []) {
           : null
       const gstin = String(r['GSTIN'] || '').trim().toUpperCase()
       return {
-        partner_type: 'Vendor',
+        partner_type: type,
         name: String(r['Name']).trim(),
         short_name: String(r['Short Name'] || '').trim(),
         gstin: gstin || null,
@@ -127,6 +128,7 @@ export async function bulkImportPartners(rows, locations = []) {
         .from('partners')
         .select('id')
         .eq('gstin', row.gstin)
+        .eq('partner_type', type)
         .maybeSingle()
       if (findErr) throw findErr
       existingId = existing?.id || null
