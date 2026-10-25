@@ -11,6 +11,7 @@ import { validatePartner } from '../utils/validation'
 import { exportPartnersToExcel, readExcelFile } from '../utils/excelExport'
 import { INDIAN_STATES } from '../lib/constants'
 import { useToast } from '../context/ToastContext'
+import { suggestTds } from '../utils/tds'
 
 const PAGE_SIZE = 10
 const ALL_COMPANIES = 'all'
@@ -57,6 +58,16 @@ export default function PartnerMaster() {
   const [toDelete, setToDelete] = useState(null)
   const [viewOnly, setViewOnly] = useState(false)
   const [tab, setTab] = useState('general')
+  // true while the TDS rate on screen was filled in automatically (so it can follow GSTIN / PAN changes)
+  const [tdsAuto, setTdsAuto] = useState(false)
+
+  const tdsHint = useMemo(() => suggestTds(form.tds_section, form.gstin, form.pan), [form.tds_section, form.gstin, form.pan])
+
+  // When the GSTIN or PAN is edited and the rate was auto-filled, refresh it. A rate typed by the user is left alone.
+  useEffect(() => {
+    if (viewOnly || !tdsAuto || !tdsHint || tdsHint.rate === null) return
+    setForm((f) => (String(f.tds_rate) === String(tdsHint.rate) ? f : { ...f, tds_rate: tdsHint.rate }))
+  }, [tdsHint, tdsAuto, viewOnly])
 
   async function load() {
     setLoading(true)
@@ -100,9 +111,9 @@ export default function PartnerMaster() {
     return filtered.slice(start, start + PAGE_SIZE)
   }, [filtered, page])
 
-  function openCreate() { setEditing(null); setForm(emptyPartner()); setShipToList([]); setErrors({}); setViewOnly(false); setTab('general'); setModalOpen(true) }
-  function openEdit(p) { setEditing(p); setForm(p); setShipToList(p.partner_ship_to || []); setErrors({}); setViewOnly(false); setTab('general'); setModalOpen(true) }
-  function openView(p) { setEditing(p); setForm(p); setShipToList(p.partner_ship_to || []); setErrors({}); setViewOnly(true); setTab('general'); setModalOpen(true) }
+  function openCreate() { setEditing(null); setForm(emptyPartner()); setShipToList([]); setErrors({}); setViewOnly(false); setTab('general'); setTdsAuto(false); setModalOpen(true) }
+  function openEdit(p) { setEditing(p); setForm(p); setShipToList(p.partner_ship_to || []); setErrors({}); setViewOnly(false); setTab('general'); setTdsAuto(false); setModalOpen(true) }
+  function openView(p) { setEditing(p); setForm(p); setShipToList(p.partner_ship_to || []); setErrors({}); setViewOnly(true); setTab('general'); setTdsAuto(false); setModalOpen(true) }
 
   function addShipTo() { setShipToList((prev) => [...prev, emptyShipTo()]) }
   function updateShipTo(idx, patch) {
@@ -434,14 +445,22 @@ export default function PartnerMaster() {
                     <div className="space-y-2.5">
                       <h4 className="text-xs font-semibold uppercase text-gold-600">TDS</h4>
                       <Row label="TDS Section">
-                        <select disabled={viewOnly} className="input" value={form.tds_section || ''} onChange={(e) => setForm({ ...form, tds_section: e.target.value })}>
+                        <select disabled={viewOnly} className="input" value={form.tds_section || ''} onChange={(e) => {
+                          const sec = e.target.value
+                          const sug = suggestTds(sec, form.gstin, form.pan)
+                          if (sug && sug.rate !== null) { setForm({ ...form, tds_section: sec, tds_rate: sug.rate }); setTdsAuto(true) }
+                          else { setForm({ ...form, tds_section: sec, tds_rate: sec ? form.tds_rate : '' }); setTdsAuto(false) }
+                        }}>
                           <option value="">Not applicable</option>
                           {TDS_SECTIONS.map(([c, d]) => <option key={c} value={c}>{c} - {d}</option>)}
                         </select>
                       </Row>
                       <Row label="TDS Rate %" error={errors.tds_rate}>
-                        <input disabled={viewOnly} type="number" min="0" max="100" step="0.01" className="input" value={form.tds_rate ?? ''} onChange={(e) => setForm({ ...form, tds_rate: e.target.value })} />
+                        <input disabled={viewOnly} type="number" min="0" max="100" step="0.01" className="input" value={form.tds_rate ?? ''} onChange={(e) => { setForm({ ...form, tds_rate: e.target.value }); setTdsAuto(false) }} />
                       </Row>
+                      {tdsHint?.note && !viewOnly && (
+                        <p className="ml-[142px] text-[11px] text-navy-400">{tdsAuto ? 'Auto-filled: ' : 'Suggested: '}{tdsHint.note}</p>
+                      )}
                     </div>
                   </div>
                 )}
