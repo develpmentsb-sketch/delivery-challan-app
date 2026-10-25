@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Plus, Search, Pencil, Trash2, FileSpreadsheet, Upload, X, Save, Loader2, Star } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, FileSpreadsheet, Upload, X, Save, Loader2, Star, ExternalLink } from 'lucide-react'
 import Header from '../components/Header'
 import LoadingSpinner from '../components/LoadingSpinner'
 import EmptyState from '../components/EmptyState'
@@ -138,6 +138,14 @@ export default function PartnerMaster() {
       }
       return next
     })
+  }
+
+  // Copies the GSTIN and opens the official GST portal search page (it needs a captcha, so it has to be done by hand).
+  async function openGstPortal() {
+    const g = (form.gstin || '').trim()
+    try { if (g) await navigator.clipboard.writeText(g) } catch (e) { /* clipboard may be blocked - ignore */ }
+    window.open('https://services.gst.gov.in/services/searchtp', '_blank', 'noopener,noreferrer')
+    toast.info(g ? 'GSTIN copied - paste it in the GST portal, enter the captcha, then copy the name and address back here' : 'GST portal opened - enter the GSTIN there')
   }
 
   async function handleSave() {
@@ -327,6 +335,11 @@ export default function PartnerMaster() {
                 <div className="space-y-2.5">
                   <Row label="GSTIN" error={errors.gstin || (!viewOnly && gstinStatus(form.gstin) === 'invalid' ? 'This GSTIN looks wrong - please re-check it' : '')}>
                     <input disabled={viewOnly} className="input" maxLength={15} placeholder="15-character GSTIN" value={form.gstin || ''} onChange={(e) => handleGstinChange(e.target.value)} />
+                    {!viewOnly && (
+                      <button type="button" onClick={openGstPortal} className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-navy-500 hover:text-navy">
+                        <ExternalLink size={12} /> Verify on GST portal (copies GSTIN)
+                      </button>
+                    )}
                   </Row>
                   <Row label="PAN" error={errors.pan}>
                     <input disabled={viewOnly} className="input" value={form.pan || ''} onChange={(e) => setForm({ ...form, pan: e.target.value.toUpperCase() })} />
