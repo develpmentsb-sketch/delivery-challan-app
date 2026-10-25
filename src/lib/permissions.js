@@ -36,6 +36,10 @@ export const PERMISSIONS = {
   'partners.write': WRITERS,
   'partners.delete': ADMIN_ONLY,
 
+  'accounts.view': ALL,
+  'accounts.write': WRITERS,
+  'accounts.delete': ADMIN_ONLY,
+
   'settings.view': ALL,
   'company.edit': ADMIN_ONLY,
   'users.manage': ADMIN_ONLY,

@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, FilePlus2, ListOrdered, Package, Users, Settings as SettingsIcon,
-  DatabaseBackup, UserCheck, LogOut, ChevronLeft, ChevronRight, Truck, ShieldCheck
+  DatabaseBackup, UserCheck, BookOpen, LogOut, ChevronLeft, ChevronRight, Truck, ShieldCheck
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { ROLE_LABELS } from '../lib/permissions'
@@ -14,7 +14,8 @@ const NAV_ITEMS = [
   { to: '/master-list', label: 'Master List', icon: ListOrdered, perm: 'challan.view' },
   { to: '/items', label: 'Item List', icon: Package, perm: 'items.view' },
   { to: '/partners', label: 'Vendor Master', icon: Users, perm: 'partners.view' },
-  { to: '/customers', label: 'Customer Master', icon: UserCheck, perm: 'partners.view' }
+  { to: '/customers', label: 'Customer Master', icon: UserCheck, perm: 'partners.view' },
+  { to: '/accounting', label: 'Accounting', icon: BookOpen, perm: 'accounts.view' }
 ]
 
 const BOTTOM_ITEMS = [

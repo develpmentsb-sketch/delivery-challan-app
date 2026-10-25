@@ -13,6 +13,7 @@ import PartnerMaster from './pages/PartnerMaster'
 import Settings from './pages/Settings'
 import BackupRestorePage from './pages/BackupRestore'
 import Users from './pages/Users'
+import Accounting from './pages/Accounting'
 
 // `perm` (optional) = permission required to open the page, see src/lib/permissions.js
 function ProtectedRoute({ children, perm }) {
@@ -51,6 +52,7 @@ export default function App() {
       <Route path="/items" element={<ProtectedRoute perm="items.view"><ItemMaster /></ProtectedRoute>} />
       <Route path="/partners" element={<ProtectedRoute perm="partners.view"><PartnerMaster key="Vendor" partnerType="Vendor" /></ProtectedRoute>} />
       <Route path="/customers" element={<ProtectedRoute perm="partners.view"><PartnerMaster key="Customer" partnerType="Customer" /></ProtectedRoute>} />
+      <Route path="/accounting" element={<ProtectedRoute perm="accounts.view"><Accounting /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute perm="settings.view"><Settings /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute perm="users.approve"><Users /></ProtectedRoute>} />
       <Route path="/backup-restore" element={<ProtectedRoute perm="backup.use"><BackupRestorePage /></ProtectedRoute>} />
