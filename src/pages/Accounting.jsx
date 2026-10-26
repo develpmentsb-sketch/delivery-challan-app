@@ -47,6 +47,7 @@ export default function Accounting() {
       let last = ''
       try { last = sessionStorage.getItem('acc_company') || '' } catch (e) { /* ignore */ }
       setCompany(l.find((x) => x.id === last)?.id || l[0]?.id || '')
+      if (l.length === 1) setEntered(true) // only one company: go straight in, no Choose Company screen
       setLoading(false)
     }).catch((e) => { toast.error(e.message || 'Could not load companies'); setLoading(false) })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -102,8 +103,7 @@ export default function Accounting() {
   const needBooks = Boolean(settings)
   const menus = [
     { label: 'File', items: [
-      { label: 'Choose company...', onClick: () => setEntered(false) },
-      '-',
+      ...(locations.length > 1 ? [{ label: 'Choose company...', onClick: () => setEntered(false) }, '-'] : []),
       { label: 'Download offline backup (.dcbackup)', onClick: doBackup, disabled: busy === 'backup' },
       { label: 'Download offline viewer', onClick: doViewer },
       '-',

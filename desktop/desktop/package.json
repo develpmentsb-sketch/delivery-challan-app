@@ -1,0 +1,17 @@
+{
+  "name": "dc-accounts-desktop",
+  "version": "1.0.0",
+  "description": "DC & E-Way Bill - Accounts Desktop (offline backup viewer)",
+  "author": "Bhargava VS",
+  "main": "main.js",
+  "scripts": { "start": "electron .", "dist": "electron-builder --win --publish never" },
+  "devDependencies": { "electron": "31.7.7", "electron-builder": "24.13.3" },
+  "build": {
+    "appId": "in.dcchallan.accounts",
+    "productName": "DC Accounts",
+    "files": ["main.js", "preload.js", "app/**/*"],
+    "fileAssociations": [{ "ext": "dcbackup", "name": "DC Backup File", "role": "Viewer" }],
+    "win": { "target": "nsis" },
+    "nsis": { "oneClick": true, "perMachine": false, "artifactName": "DC-Accounts-Setup.exe", "createDesktopShortcut": true }
+  }
+}

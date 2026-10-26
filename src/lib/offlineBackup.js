@@ -2,9 +2,9 @@ import { supabase } from './supabase'
 
 // Everything that goes into the offline backup file. Tables that do not exist are skipped.
 const TABLES = [
-  'company_locations', 'partners', 'partner_ship_to', 'items', 'stock_movements',
+  'companies', 'company_locations', 'partners', 'partner_ship_to', 'items', 'stock_movements',
   'acc_settings', 'acc_groups', 'acc_ledgers', 'acc_vouchers', 'acc_entries', 'acc_invoices', 'acc_invoice_lines', 'acc_stock_values',
-  'delivery_challans', 'delivery_challan_items', 'challans', 'challan_items'
+  'delivery_challans', 'delivery_challan_items', 'eway_bills'
 ]
 
 async function readTable(name) {
