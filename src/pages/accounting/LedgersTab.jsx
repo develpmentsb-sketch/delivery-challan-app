@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Plus, Pencil, Trash2, RefreshCw, Search, FolderPlus, Loader2, Save, X } from 'lucide-react'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
@@ -7,7 +7,7 @@ import { indexGroups, ledgerInfos, inr } from '../../utils/accounting'
 
 const emptyLedger = () => ({ name: '', group_id: '', opening_balance: '', opening_type: 'Dr', active: true })
 
-export default function LedgersTab({ company, groups, ledgers, canWrite, canDelete, reload }) {
+export default function LedgersTab({ company, groups, ledgers, canWrite, canDelete, reload, command, onCommandDone }) {
   const toast = useToast()
   const gi = useMemo(() => indexGroups(groups), [groups])
   const infos = useMemo(() => ledgerInfos(ledgers, gi), [ledgers, gi])
@@ -65,6 +65,14 @@ export default function LedgersTab({ company, groups, ledgers, canWrite, canDele
       reload()
     } catch (e) { toast.error(e.message || 'Could not sync') } finally { setSyncing(false) }
   }
+
+  // Menu commands (Edit > New Ledger, Data > Sync customers and vendors)
+  useEffect(() => {
+    if (!command) return
+    if (command.name === 'newLedger' && canWrite) setModal(emptyLedger())
+    if (command.name === 'sync' && canWrite) sync()
+    onCommandDone?.()
+  }, [command]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function remove() {
     try { await deleteLedger(toDelete.id); toast.success('Ledger deleted'); setToDelete(null); reload() }

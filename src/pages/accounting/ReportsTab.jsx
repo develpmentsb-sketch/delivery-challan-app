@@ -13,7 +13,7 @@ const REPORTS = [
 ]
 const dmy = (s) => (s ? `${s.slice(8, 10)}-${s.slice(5, 7)}-${s.slice(0, 4)}` : '')
 
-export default function ReportsTab({ company, companyName, fy, settings, groups, ledgers, canWrite }) {
+export default function ReportsTab({ company, companyName, fy, settings, groups, ledgers, canWrite, command, onCommandDone }) {
   const toast = useToast()
   const range = A.fyRange(fy)
   const [report, setReport] = useState('bs')
@@ -26,6 +26,12 @@ export default function ReportsTab({ company, companyName, fy, settings, groups,
   const [version, setVersion] = useState(0)
 
   useEffect(() => { setAsOn(A.fyRange(fy).to) }, [fy])
+  // Menu commands (Modules > Financial Reports > Trial Balance ...)
+  useEffect(() => {
+    if (!command) return
+    if (command.name === 'report') setReport(command.arg)
+    onCommandDone?.()
+  }, [command]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const gi = useMemo(() => A.indexGroups(groups), [groups])
   const infos = useMemo(() => A.ledgerInfos(ledgers, gi), [ledgers, gi])

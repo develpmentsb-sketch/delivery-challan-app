@@ -18,7 +18,7 @@ const todayStr = () => { const d = new Date(); const p = (n) => String(n).padSta
 const dmy = (s) => (s ? `${s.slice(8, 10)}-${s.slice(5, 7)}-${s.slice(0, 4)}` : '')
 const blankLine = (side) => ({ name: '', side, amount: '' })
 
-export default function VouchersTab({ company, fy, groups, ledgers, canWrite, canDelete, onOpenInvoice }) {
+export default function VouchersTab({ company, fy, groups, ledgers, canWrite, canDelete, onOpenInvoice, command, onCommandDone }) {
   const toast = useToast()
   const gi = useMemo(() => indexGroups(groups), [groups])
   const infos = useMemo(() => ledgerInfos(ledgers.filter((l) => l.active !== false), gi), [ledgers, gi])
@@ -69,6 +69,13 @@ export default function VouchersTab({ company, fy, groups, ledgers, canWrite, ca
       lines: (simple ? es.filter((e) => e !== headers[0]) : es).map(toLine)
     })
   }
+
+  // Menu commands (Edit > New Payment voucher ...)
+  useEffect(() => {
+    if (!command) return
+    if (command.name === 'voucher' && canWrite) openNew(command.arg)
+    onCommandDone?.()
+  }, [command]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const lineTotal = (side) => form ? form.lines.filter((l) => (form.free ? l.side === side : true)).reduce((s, l) => s + (Number(l.amount) || 0), 0) : 0
   const totals = useMemo(() => {

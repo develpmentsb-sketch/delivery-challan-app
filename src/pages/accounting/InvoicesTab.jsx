@@ -24,7 +24,7 @@ const readItem = (o) => ({
 const addressOf = (p) => (p ? [p.bill_to_address_line1, p.bill_to_address_line2, p.bill_to_city, p.bill_to_district, p.bill_to_state, p.bill_to_pin].filter(Boolean).join(', ') : '')
 const stateCodeOf = (name) => INDIAN_STATES.find((s) => s.name === name)?.code
 
-export default function InvoicesTab({ company, companyInfo, companyName, fy, groups, ledgers, canWrite, canDelete, reload, target, clearTarget }) {
+export default function InvoicesTab({ company, companyInfo, companyName, fy, groups, ledgers, canWrite, canDelete, reload, target, clearTarget, command, onCommandDone }) {
   const toast = useToast()
   const range = fyRange(fy)
   const gi = useMemo(() => indexGroups(groups), [groups])
@@ -137,6 +137,13 @@ export default function InvoicesTab({ company, companyInfo, companyName, fy, gro
     else toast.info('That invoice was not found')
     clearTarget?.()
   }, [target, loading, loadedKind, kind, invoices]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Menu commands (Edit > New Sales Invoice ...)
+  useEffect(() => {
+    if (!command) return
+    if (command.name === 'invoice' && canWrite) { setKind(command.arg); openNew() }
+    onCommandDone?.()
+  }, [command]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const setLine = (i, patch) => setForm((f) => ({ ...f, lines: f.lines.map((l, k) => (k === i ? { ...l, ...patch } : l)) }))
 
