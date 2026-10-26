@@ -1,0 +1,27 @@
+name: Build Desktop App (Windows)
+on:
+  workflow_dispatch:
+  push:
+    paths: ['desktop/**', '.github/workflows/desktop.yml', 'public/DC-Offline-Viewer.html']
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Copy viewer into the app
+        shell: pwsh
+        run: Copy-Item public/DC-Offline-Viewer.html desktop/app/index.html -Force
+      - name: Build installer
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          npm install
+          npx electron-builder --win --publish never
+      - name: Publish release
+        shell: pwsh
+        env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
+        run: gh release create "desktop-v${{ github.run_number }}" desktop/dist/DC-Accounts-Setup.exe --title "DC Accounts Desktop v${{ github.run_number }}" --notes "Download DC-Accounts-Setup.exe and install."
