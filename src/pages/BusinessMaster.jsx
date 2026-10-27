@@ -6,7 +6,7 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import EmptyState from '../components/EmptyState'
 import Pagination from '../components/Pagination'
 import PartnerLedgerModal from '../components/PartnerLedgerModal'
-import { listPartners, getPartnerBalances, deletePartner } from '../services/partnerService'
+import { listPartners, getPartnerBalances, deletePartner, getDeleteBlocks } from '../services/partnerService'
 import { listLocations } from '../lib/locations'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
@@ -47,6 +47,7 @@ export default function BusinessMaster() {
   const { can } = useAuth()
   const canDelete = can('partners.delete')
   const [reloadKey, setReloadKey] = useState(0)
+  const [blocks, setBlocks] = useState({})
   const [loading, setLoading] = useState(true)
   const [partners, setPartners] = useState([])
   const [bals, setBals] = useState({})
@@ -63,6 +64,7 @@ export default function BusinessMaster() {
       try {
         const [ps, b, locs] = await Promise.all([listPartners({ type: 'All' }), getPartnerBalances().catch(() => []), listLocations().catch(() => [])])
         setPartners(ps); setLocations(locs)
+        setBlocks(await getDeleteBlocks('partners', ps.map((x) => x.id)))
         const m = {}
         b.forEach((x) => { m[x.partner_id] = (m[x.partner_id] || 0) + Number(x.balance); m[`has:${x.partner_id}`] = true })
         setBals(m)
@@ -105,8 +107,9 @@ export default function BusinessMaster() {
 
   async function removeRow(r) {
     const recs = [r.cust, r.vend].filter(Boolean)
-    const hasLedger = r.custLedger || r.vendLedger
-    const msg = `Delete "${r.name}" (${r.role}) from the master?` + (hasLedger ? '\n\nIts accounting ledger and vouchers stay in the books (the ledger just becomes unlinked).' : '') + '\n\nThis cannot be undone.'
+    const why = recs.map((p) => blocks[p.id]).find(Boolean)
+    if (why) return toast.info(why)
+    const msg = `Are you sure you want to delete this record?\n\n"${r.name}" (${r.role})\nThis cannot be undone.`
     if (!window.confirm(msg)) return
     try {
       for (const p of recs) await deletePartner(p.id)
@@ -184,7 +187,7 @@ export default function BusinessMaster() {
                         <td className="text-right text-xs tabular-nums">{balCell(r.vendBal, r.vend, r.vendLedger)}</td>
                         <td className="text-right text-xs font-semibold tabular-nums">{anyLedger ? drcr(net) : <span className="text-navy-300">-</span>}</td>
                         <td><span className={`badge ${r.status === 'Blocked' ? 'bg-brick/10 text-brick' : r.status === 'On Hold' ? 'bg-gold-100 text-gold-700' : 'bg-forest-100 text-forest-600'}`}>{r.status}</span></td>
-                        {canDelete && <td><button type="button" className="text-navy-300 hover:text-brick" title="Delete" onClick={(e) => { e.stopPropagation(); removeRow(r) }}><Trash2 size={15} /></button></td>}
+                        {canDelete && <td>{(() => { const why = [r.cust, r.vend].filter(Boolean).map((p) => blocks[p.id]).find(Boolean); return <button type="button" className={why ? 'cursor-not-allowed text-navy-200' : 'text-navy-300 hover:text-brick'} title={why || 'Delete'} onClick={(e) => { e.stopPropagation(); removeRow(r) }}><Trash2 size={15} /></button> })()}</td>}
                       </tr>
                     )
                   })}

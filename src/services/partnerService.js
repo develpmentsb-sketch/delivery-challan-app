@@ -72,6 +72,16 @@ export async function getPartnerBalances() {
 }
 
 // Ledger statement of a customer / vendor: one block per company ledger, with every entry.
+// Why a record cannot be deleted: { id: reason } for the ids that are blocked (empty if the check is not installed yet).
+export async function getDeleteBlocks(table, ids) {
+  if (!ids?.length) return {}
+  const { data, error } = await supabase.rpc('dc_delete_blocked', { p_table: table, p_ids: ids })
+  if (error) return {}
+  const m = {}
+  ;(data || []).forEach((r) => { m[r.id] = r.reason })
+  return m
+}
+
 export async function getPartnerLedger(partnerId) {
   const { data: ledgers, error } = await supabase
     .from('acc_ledgers').select('id,name,company_id,opening_balance,opening_type').eq('partner_id', partnerId)

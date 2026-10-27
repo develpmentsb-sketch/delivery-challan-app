@@ -5,7 +5,7 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import EmptyState from '../components/EmptyState'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
-import { listPartners, createPartner, updatePartner, deletePartner, isDuplicateGSTIN, bulkImportPartners, getPartnerBalances } from '../services/partnerService'
+import { listPartners, createPartner, updatePartner, deletePartner, isDuplicateGSTIN, bulkImportPartners, getPartnerBalances, getDeleteBlocks } from '../services/partnerService'
 import { listLocations } from '../lib/locations'
 import { validatePartner } from '../utils/validation'
 import { exportPartnersToExcel, readExcelFile } from '../utils/excelExport'
@@ -52,6 +52,7 @@ export default function PartnerMaster({ partnerType = 'Vendor' }) {
   const [partners, setPartners] = useState([])
   const [locations, setLocations] = useState([])
   const [ledgerFor, setLedgerFor] = useState(null)
+  const [blocks, setBlocks] = useState({}) // partner id -> why it cannot be deleted
   const [balances, setBalances] = useState({}) // partner id -> [{ company_id, balance }]
   const [search, setSearch] = useState('')
   const [companyFilter, setCompanyFilter] = useState('')
@@ -88,6 +89,7 @@ export default function PartnerMaster({ partnerType = 'Vendor' }) {
         getPartnerBalances().catch(() => [])
       ])
       setPartners(vendors)
+      setBlocks(await getDeleteBlocks('partners', vendors.map((v) => v.id)))
       const byPartner = {}
       bals.forEach((b) => { (byPartner[b.partner_id] = byPartner[b.partner_id] || []).push({ company_id: b.company_id, balance: Number(b.balance) }) })
       setBalances(byPartner)
@@ -327,7 +329,9 @@ export default function PartnerMaster({ partnerType = 'Vendor' }) {
                           <div className="flex gap-2">
                             <button onClick={() => openView(p)} className="text-navy-400 hover:text-navy text-xs">View</button>
                             <button onClick={() => openEdit(p)} className="text-navy-400 hover:text-navy"><Pencil size={14} /></button>
-                            <button onClick={() => setToDelete(p)} className="text-navy-400 hover:text-brick"><Trash2 size={14} /></button>
+                            {blocks[p.id]
+                              ? <button onClick={() => toast.info(blocks[p.id])} title={blocks[p.id]} className="cursor-not-allowed text-navy-200"><Trash2 size={14} /></button>
+                              : <button onClick={() => setToDelete(p)} className="text-navy-400 hover:text-brick" title="Delete"><Trash2 size={14} /></button>}
                           </div>
                         </td>
                       </tr>
@@ -570,7 +574,7 @@ export default function PartnerMaster({ partnerType = 'Vendor' }) {
 
       <ConfirmDialog
         open={Boolean(toDelete)}
-        title="Delete this record?"
+        title="Are you sure you want to delete this record?"
         message={`"${toDelete?.name}" and its Ship To addresses will be permanently removed.`}
         confirmLabel="Delete"
         danger
