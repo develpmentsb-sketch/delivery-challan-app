@@ -10,6 +10,7 @@ import DeliveryChallanForm from './pages/DeliveryChallanForm'
 import MasterList from './pages/MasterList'
 import ItemMaster from './pages/ItemMaster'
 import PartnerMaster from './pages/PartnerMaster'
+import LedgerMaster from './pages/LedgerMaster'
 import Settings from './pages/Settings'
 import BackupRestorePage from './pages/BackupRestore'
 import Users from './pages/Users'
@@ -55,6 +56,7 @@ export default function App() {
       <Route path="/customers" element={<ProtectedRoute perm="partners.view"><PartnerMaster key="Customer" partnerType="Customer" /></ProtectedRoute>} />
       <Route path="/accounting" element={<ProtectedRoute perm="accounts.view"><Accounting /></ProtectedRoute>} />
       <Route path="/business-master" element={<ProtectedRoute perm="accounts.view"><BusinessMaster /></ProtectedRoute>} />
+      <Route path="/ledgers" element={<ProtectedRoute perm="ledgers.view"><LedgerMaster /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute perm="settings.view"><Settings /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute perm="users.approve"><Users /></ProtectedRoute>} />
       <Route path="/backup-restore" element={<ProtectedRoute perm="backup.use"><BackupRestorePage /></ProtectedRoute>} />

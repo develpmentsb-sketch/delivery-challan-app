@@ -36,6 +36,13 @@ export const PERMISSIONS = {
   'partners.write': WRITERS,
   'partners.delete': ADMIN_ONLY,
 
+  'ledgers.view': ALL,
+  'ledgers.write': WRITERS,        // create / edit / deactivate ledgers
+  'ledgers.delete': ADMIN_ONLY,
+  'ledgers.groups': ADMIN_ONLY,    // add / edit / delete account groups
+  'ledgers.banking': ADMIN_ONLY,   // see and edit bank account numbers and IFSC
+  'audit.view': ADMIN_ONLY,        // read the audit history
+
   'accounts.view': ALL,
   'accounts.write': WRITERS,
   'accounts.delete': ADMIN_ONLY,

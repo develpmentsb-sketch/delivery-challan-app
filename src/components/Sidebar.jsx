@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { to: '/master-list', label: 'Master List', icon: ListOrdered, perm: 'challan.view' },
   { to: '/items', label: 'Item List', icon: Package, perm: 'items.view' },
   { to: '/partners', label: 'Vendor Master', icon: Users, perm: 'partners.view' },
+  { to: '/ledgers', label: 'Ledger Master', icon: BookOpen, perm: 'ledgers.view' },
   { to: '/customers', label: 'Customer Master', icon: UserCheck, perm: 'partners.view' },
   { to: '/accounting', label: 'Accounting', icon: BookOpen, perm: 'accounts.view' },
   { to: '/business-master', label: 'Business Master', icon: Briefcase, perm: 'accounts.view' }
