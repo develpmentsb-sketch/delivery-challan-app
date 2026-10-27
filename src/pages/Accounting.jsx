@@ -13,8 +13,11 @@ import LedgersTab from './accounting/LedgersTab'
 import VouchersTab from './accounting/VouchersTab'
 import ReportsTab from './accounting/ReportsTab'
 import InvoicesTab from './accounting/InvoicesTab'
+import PartnerMaster from './PartnerMaster'
+import BusinessMaster from './BusinessMaster'
 
-const WINDOWS = [['daybook', 'Day Book & Vouchers'], ['invoices', 'Sales & Purchase Invoices'], ['ledgers', 'Ledgers / Chart of Accounts'], ['reports', 'Reports']]
+const WINDOWS = [['daybook', 'Day Book & Vouchers'], ['invoices', 'Sales & Purchase Invoices'], ['ledgers', 'Ledgers / Chart of Accounts'], ['reports', 'Reports'], ['bm', 'Business Master'], ['customers', 'Customer Master'], ['vendors', 'Vendor Master']]
+const MASTERS = ['bm', 'customers', 'vendors'] // these open inside this window and need no accounting books
 const todayStr = () => { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` }
 const REPORT_LIST = [['tb', 'Trial Balance'], ['pl', 'Trading & Profit and Loss'], ['bs', 'Balance Sheet'], ['cf', 'Cash Flow'], ['ratios', 'Key Ratios'], ['ledger', 'Ledger Statement']]
 
@@ -130,9 +133,9 @@ export default function Accounting() {
       { label: 'Dashboard', onClick: () => navigate('/') },
       { label: 'Master List', onClick: () => navigate('/master-list') },
       { label: 'Item List', onClick: () => navigate('/items') },
-      { label: 'Vendor Master', onClick: () => navigate('/partners') },
-      { label: 'Customer Master', onClick: () => navigate('/customers') },
-      { label: 'Business Master', onClick: () => navigate('/business-master') }
+      { label: 'Vendor Master', onClick: () => run('vendors') },
+      { label: 'Customer Master', onClick: () => run('customers') },
+      { label: 'Business Master', onClick: () => run('bm') }
     ] },
     { label: 'Modules', items: [
       { header: true, label: 'Financials' },
@@ -143,9 +146,9 @@ export default function Accounting() {
       { header: true, label: 'Purchasing - A/P' },
       { label: 'Purchase Invoices', disabled: !needBooks, onClick: () => run('invoices', { name: 'noop' }) },
       { header: true, label: 'Business Partners' },
-      { label: 'Business Master', onClick: () => navigate('/business-master') },
-      { label: 'Customer Master', onClick: () => navigate('/customers') },
-      { label: 'Vendor Master', onClick: () => navigate('/partners') },
+      { label: 'Business Master', onClick: () => run('bm') },
+      { label: 'Customer Master', onClick: () => run('customers') },
+      { label: 'Vendor Master', onClick: () => run('vendors') },
       { header: true, label: 'Financial Reports' },
       ...REPORT_LIST.map(([k, n]) => ({ label: n, disabled: !needBooks, onClick: () => run('reports', { name: 'report', arg: k }) }))
     ] },
@@ -154,7 +157,7 @@ export default function Accounting() {
       { label: 'Backup / Restore', disabled: !can('backup.use'), onClick: () => navigate('/backup-restore') }
     ] },
     { label: 'Window', items: [
-      ...WINDOWS.map(([id, label]) => ({ label, check: tab === id, disabled: !needBooks, onClick: () => run(id) }))
+      ...WINDOWS.map(([id, label]) => ({ label, check: tab === id, disabled: !needBooks && !MASTERS.includes(id), onClick: () => run(id) }))
     ] },
     { label: 'Help', items: [{ label: 'About this module', onClick: () => setAbout(true) }] }
   ]
@@ -193,14 +196,16 @@ export default function Accounting() {
       <SapMenuBar menus={menus} right={companyName} />
       <div className="flex gap-0.5 overflow-x-auto bg-[#cdd8e3] px-2 pt-1.5">
         {WINDOWS.map(([id, label]) => (
-          <button key={id} disabled={!needBooks} onClick={() => run(id)}
+          <button key={id} disabled={!needBooks && !MASTERS.includes(id)} onClick={() => run(id)}
             className={`whitespace-nowrap rounded-t px-4 py-1.5 text-[13px] ${tab === id ? 'border-t-2 border-[#f0ab00] bg-white font-semibold text-[#16314d]' : 'bg-[#e1e9f1] text-[#456] hover:bg-[#eef3f8]'} disabled:opacity-50`}>
             {label}
           </button>
         ))}
       </div>
       <div className="min-h-[60vh] bg-white p-4">
-        {loading ? <LoadingSpinner /> : !company ? (
+        {MASTERS.includes(tab) ? (
+          tab === 'bm' ? <BusinessMaster key="bm" /> : <PartnerMaster key={tab} partnerType={tab === 'customers' ? 'Customer' : 'Vendor'} />
+        ) : loading ? <LoadingSpinner /> : !company ? (
           <div className="p-8 text-center text-sm text-navy-500">Add a company in Settings first.</div>
         ) : !settings ? (
           <div className="mx-auto max-w-xl rounded-lg border border-navy-100 p-6">
