@@ -99,11 +99,19 @@ export default function BusinessMaster() {
     XLSX.writeFile(wb, 'Business-Master.xlsx')
   }
 
+  // Clicking anywhere on a row opens that party's ledger statement
+  function openLedger(r) {
+    const pick = [[r.cust, r.custLedger, r.custBal], [r.vend, r.vendLedger, r.vendBal]].filter((x) => x[0] && x[1])
+    if (!pick.length) return toast.info('No accounting ledger yet. Open Accounting > Ledgers and use "Sync customers & vendors" first.')
+    pick.sort((a, b) => Math.abs(b[2] || 0) - Math.abs(a[2] || 0))
+    setLedgerFor(pick[0][0])
+  }
+
   const balCell = (bal, partner, hasLedger) => {
     if (bal === null) return <span className="text-navy-300">-</span>
     if (!hasLedger) return <span className="text-navy-300" title="No accounting ledger yet - sync parties in Accounting > Ledgers">-</span>
     return (
-      <button type="button" className={`font-semibold hover:underline ${Math.abs(bal) < 0.005 ? 'text-navy-400' : bal >= 0 ? 'text-forest-600' : 'text-brick'}`} title="Click to open the ledger" onClick={() => setLedgerFor(partner)}>
+      <button type="button" className={`font-semibold hover:underline ${Math.abs(bal) < 0.005 ? 'text-navy-400' : bal >= 0 ? 'text-forest-600' : 'text-brick'}`} title="Click to open the ledger" onClick={(e) => { e.stopPropagation(); setLedgerFor(partner) }}>
         {drcr(bal)}
       </button>
     )
@@ -149,9 +157,9 @@ export default function BusinessMaster() {
                     const net = (r.custBal || 0) + (r.vendBal || 0)
                     const anyLedger = r.custLedger || r.vendLedger
                     return (
-                      <tr key={r.key}>
+                      <tr key={r.key} className="cursor-pointer hover:bg-gold-50" title="Click to open the ledger" onClick={() => openLedger(r)}>
                         <td className="text-xs font-semibold text-navy-500">{[r.custCode, r.vendCode].filter(Boolean).join(' / ') || '-'}</td>
-                        <td className="font-medium text-navy">{r.name}</td>
+                        <td className="font-medium text-navy hover:underline">{r.name}</td>
                         <td><span className={`badge ${r.role === 'Customer & Vendor' ? 'bg-gold-100 text-gold-700' : r.role === 'Customer' ? 'bg-navy-100 text-navy-600' : 'bg-forest-100 text-forest-600'}`}>{r.role}</span></td>
                         <td className="text-xs">{r.gstin || '-'}</td>
                         <td className="text-xs">{r.state || '-'}</td>
