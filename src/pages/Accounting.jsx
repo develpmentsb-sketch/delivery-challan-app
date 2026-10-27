@@ -6,6 +6,7 @@ import SapMenuBar from '../components/SapMenuBar'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { listLocations } from '../lib/locations'
+import { supabase } from '../lib/supabase'
 import { downloadOfflineBackup, downloadOfflineViewer } from '../lib/offlineBackup'
 import { getSettings, setupCompany, listGroups, listLedgers } from '../services/accountingService'
 import { fyOf, fyRange, fyList } from '../utils/accounting'
@@ -42,6 +43,7 @@ export default function Accounting() {
   const [cmd, setCmd] = useState(null)             // a menu command waiting for its window to pick it up
   const [busy, setBusy] = useState('')
   const [about, setAbout] = useState(false)
+  const [edit, setEdit] = useState(null) // { name, start, first } while the Company & Financial Year dialog is open
   const [refresh, setRefresh] = useState(0)
 
   useEffect(() => {
@@ -99,6 +101,25 @@ export default function Accounting() {
       toast.success(`Backup downloaded (${n} records). Open it with DC-Offline-Viewer.html.${r.skipped.length ? ` Not found: ${r.skipped.join(', ')}` : ''}`)
     } catch (e) { toast.error(e.message || 'Backup failed') } finally { setBusy('') }
   }
+  async function openEdit() {
+    const { data } = await supabase.from('acc_vouchers').select('voucher_date').eq('company_id', company).order('voucher_date', { ascending: true }).limit(1)
+    setEdit({ name: company_?.legal_name || company_?.location_name || '', start: settings?.books_start || '', first: data?.[0]?.voucher_date || '' })
+  }
+  async function saveEdit() {
+    const name = edit.name.trim()
+    if (!name) return toast.error('Enter the company name')
+    if (settings && !edit.start) return toast.error('Enter the books start date')
+    if (settings && edit.first && edit.start > edit.first) return toast.error(`Books start cannot be after your first voucher (${edit.first.split('-').reverse().join('-')})`)
+    try {
+      const a = await supabase.from('company_locations').update({ legal_name: name, location_name: name }).eq('id', company)
+      if (a.error) throw a.error
+      if (settings) { const b = await supabase.from('acc_settings').update({ books_start: edit.start }).eq('company_id', company); if (b.error) throw b.error }
+      toast.success('Saved')
+      setEdit(null)
+      const l = await listLocations(); setLocations(l)
+      await loadCompany(company)
+    } catch (e) { toast.error(e.message || 'Could not save') }
+  }
   async function doViewer() {
     try { await downloadOfflineViewer(); toast.success('Offline viewer downloaded') } catch (e) { toast.error(e.message) }
   }
@@ -153,6 +174,8 @@ export default function Accounting() {
       ...REPORT_LIST.map(([k, n]) => ({ label: n, disabled: !needBooks, onClick: () => run('reports', { name: 'report', arg: k }) }))
     ] },
     { label: 'Tools', items: [
+      { label: 'Company name & financial year...', disabled: !canWrite, onClick: openEdit },
+      '-',
       { label: 'Settings', onClick: () => navigate('/settings') },
       { label: 'Backup / Restore', disabled: !can('backup.use'), onClick: () => navigate('/backup-restore') }
     ] },
@@ -235,6 +258,27 @@ export default function Accounting() {
         <span>{companyName}</span>{settings && <span>FY {fy}</span>}<span>{user?.email}</span><span>{role}</span>
         <span className="flex-1" />{busy === 'backup' && <span>Preparing backup...</span>}
       </div>
+
+      {edit && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-navy-900/50 p-4">
+          <div className="w-full max-w-md border-t-[3px] border-[#f0ab00] bg-white p-6 text-sm">
+            <h3 className="mb-4 text-lg font-semibold text-navy">Company name &amp; financial year</h3>
+            <label className="label">Company name</label>
+            <input className="input" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
+            {settings && (
+              <>
+                <label className="label mt-3">Books start date (first financial year starts here)</label>
+                <input type="date" className="input max-w-xs" value={edit.start} onChange={(e) => setEdit({ ...edit, start: e.target.value })} />
+                <p className="mt-1 text-xs text-navy-400">Financial years run April to March. Opening balances are as on this date.{edit.first ? ` Your first voucher is dated ${edit.first.split('-').reverse().join('-')}, so the start date cannot be later than that.` : ''}</p>
+              </>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button className="btn-outline" onClick={() => setEdit(null)}>Cancel</button>
+              <button className="btn-primary" onClick={saveEdit}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {about && (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-navy-900/50 p-4" onClick={() => setAbout(false)}>

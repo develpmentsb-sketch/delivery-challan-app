@@ -1,14 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Search, FileSpreadsheet } from 'lucide-react'
+import { Search, FileSpreadsheet, Trash2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import Header from '../components/Header'
 import LoadingSpinner from '../components/LoadingSpinner'
 import EmptyState from '../components/EmptyState'
 import Pagination from '../components/Pagination'
 import PartnerLedgerModal from '../components/PartnerLedgerModal'
-import { listPartners, getPartnerBalances } from '../services/partnerService'
+import { listPartners, getPartnerBalances, deletePartner } from '../services/partnerService'
 import { listLocations } from '../lib/locations'
 import { useToast } from '../context/ToastContext'
+import { useAuth } from '../context/AuthContext'
 
 const PAGE_SIZE = 15
 const inr = (n) => Math.abs(Number(n || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -43,6 +44,9 @@ function mergePartners(list, balOf) {
 
 export default function BusinessMaster() {
   const toast = useToast()
+  const { can } = useAuth()
+  const canDelete = can('partners.delete')
+  const [reloadKey, setReloadKey] = useState(0)
   const [loading, setLoading] = useState(true)
   const [partners, setPartners] = useState([])
   const [bals, setBals] = useState({})
@@ -64,7 +68,7 @@ export default function BusinessMaster() {
         setBals(m)
       } catch (e) { toast.error(e.message || 'Could not load the business partners') } finally { setLoading(false) }
     })()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [reloadKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const locName = useMemo(() => Object.fromEntries(locations.map((l) => [l.id, l.legal_name || l.location_name])), [locations])
   const rows = useMemo(() => mergePartners(partners, (id, flag) => (flag ? Boolean(bals[`has:${id}`]) : bals[id] || 0)), [partners, bals])
@@ -97,6 +101,18 @@ export default function BusinessMaster() {
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Business Master')
     XLSX.writeFile(wb, 'Business-Master.xlsx')
+  }
+
+  async function removeRow(r) {
+    const recs = [r.cust, r.vend].filter(Boolean)
+    const hasLedger = r.custLedger || r.vendLedger
+    const msg = `Delete "${r.name}" (${r.role}) from the master?` + (hasLedger ? '\n\nIts accounting ledger and vouchers stay in the books (the ledger just becomes unlinked).' : '') + '\n\nThis cannot be undone.'
+    if (!window.confirm(msg)) return
+    try {
+      for (const p of recs) await deletePartner(p.id)
+      toast.success('Deleted')
+      setReloadKey((n) => n + 1)
+    } catch (e) { toast.error(e.message || 'Could not delete (it may be used in a delivery challan)') }
   }
 
   // Clicking anywhere on a row opens that party's ledger statement
@@ -151,7 +167,7 @@ export default function BusinessMaster() {
           <>
             <div className="overflow-x-auto">
               <table className="table-base">
-                <thead><tr><th>Code</th><th>Name</th><th>Role</th><th>GSTIN</th><th>State</th><th>Company</th><th className="text-right">Customer balance</th><th className="text-right">Vendor balance</th><th className="text-right">Net</th><th>Status</th></tr></thead>
+                <thead><tr><th>Code</th><th>Name</th><th>Role</th><th>GSTIN</th><th>State</th><th>Company</th><th className="text-right">Customer balance</th><th className="text-right">Vendor balance</th><th className="text-right">Net</th><th>Status</th>{canDelete && <th></th>}</tr></thead>
                 <tbody>
                   {paged.map((r) => {
                     const net = (r.custBal || 0) + (r.vendBal || 0)
@@ -168,6 +184,7 @@ export default function BusinessMaster() {
                         <td className="text-right text-xs tabular-nums">{balCell(r.vendBal, r.vend, r.vendLedger)}</td>
                         <td className="text-right text-xs font-semibold tabular-nums">{anyLedger ? drcr(net) : <span className="text-navy-300">-</span>}</td>
                         <td><span className={`badge ${r.status === 'Blocked' ? 'bg-brick/10 text-brick' : r.status === 'On Hold' ? 'bg-gold-100 text-gold-700' : 'bg-forest-100 text-forest-600'}`}>{r.status}</span></td>
+                        {canDelete && <td><button type="button" className="text-navy-300 hover:text-brick" title="Delete" onClick={(e) => { e.stopPropagation(); removeRow(r) }}><Trash2 size={15} /></button></td>}
                       </tr>
                     )
                   })}
