@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Search, FileSpreadsheet, Trash2 } from 'lucide-react'
+import { Search, FileSpreadsheet, Trash2, UserPlus, Truck, Plus, Landmark } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import Header from '../components/Header'
 import LoadingSpinner from '../components/LoadingSpinner'
 import EmptyState from '../components/EmptyState'
 import Pagination from '../components/Pagination'
 import PartnerLedgerModal from '../components/PartnerLedgerModal'
-import { listPartners, getPartnerBalances, deletePartner, getDeleteBlocks } from '../services/partnerService'
+import { listPartners, getPartnerBalances, deletePartner, getDeleteBlocks, getMasterCounts } from '../services/partnerService'
 import { listLocations } from '../lib/locations'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
@@ -42,8 +43,11 @@ function mergePartners(list, balOf) {
   }).sort((a, b) => a.name.localeCompare(b.name))
 }
 
-export default function BusinessMaster() {
+// onAction(name) is given by the Accounting window: 'customer' | 'vendor' | 'ledger' | 'bank'
+export default function BusinessMaster({ onAction }) {
   const toast = useToast()
+  const navigate = useNavigate()
+  const [counts, setCounts] = useState({ ledgers: 0, banks: 0 })
   const { can } = useAuth()
   const canDelete = can('partners.delete')
   const [reloadKey, setReloadKey] = useState(0)
@@ -65,6 +69,7 @@ export default function BusinessMaster() {
         const [ps, b, locs] = await Promise.all([listPartners({ type: 'All' }), getPartnerBalances().catch(() => []), listLocations().catch(() => [])])
         setPartners(ps); setLocations(locs)
         setBlocks(await getDeleteBlocks('partners', ps.map((x) => x.id)))
+        getMasterCounts().then(setCounts).catch(() => {})
         const m = {}
         b.forEach((x) => { m[x.partner_id] = (m[x.partner_id] || 0) + Number(x.balance); m[`has:${x.partner_id}`] = true })
         setBals(m)
@@ -143,6 +148,27 @@ export default function BusinessMaster() {
         subtitle="Every customer and vendor in one place, with its ledger balance"
         actions={<button className="btn-outline" onClick={exportExcel}><FileSpreadsheet size={16} /> Export Excel</button>}
       />
+
+      {/* Dashboard */}
+      <div className="mb-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {[
+          ['Total customers', rows.filter((r) => r.cust).length],
+          ['Total vendors', rows.filter((r) => r.vend).length],
+          ['Business partners', rows.length],
+          ['Active masters', rows.filter((r) => r.status === 'Active').length],
+          ['Ledger accounts', counts.ledgers],
+          ['Bank accounts', counts.banks]
+        ].map(([label, n]) => (
+          <div key={label} className="card p-3"><p className="text-[11px] font-semibold uppercase text-navy-400">{label}</p><p className="mt-1 font-display text-2xl font-bold text-navy">{n}</p></div>
+        ))}
+      </div>
+      <div className="mb-6 flex flex-wrap gap-2">
+        <button className="btn-gold" onClick={() => (onAction ? onAction('customer') : navigate('/customers?new=1'))}><UserPlus size={16} /> New Customer</button>
+        <button className="btn-outline" onClick={() => (onAction ? onAction('vendor') : navigate('/partners?new=1'))}><Truck size={16} /> New Vendor</button>
+        {onAction && <button className="btn-outline" onClick={() => onAction('ledger')}><Plus size={16} /> New Ledger</button>}
+        {onAction && <button className="btn-outline" onClick={() => onAction('bank')}><Landmark size={16} /> New Bank Account</button>}
+        <button className="btn-outline" onClick={exportExcel}><FileSpreadsheet size={16} /> Export to Excel</button>
+      </div>
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <div className="card p-4"><p className="text-xs font-semibold uppercase text-navy-400">Total receivable</p><p className="mt-1 font-display text-xl font-bold text-forest-600">{inr(receivable)}</p><p className="text-[11px] text-navy-400">Customers owe you</p></div>

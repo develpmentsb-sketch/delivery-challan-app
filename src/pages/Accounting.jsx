@@ -45,6 +45,7 @@ export default function Accounting() {
   const [about, setAbout] = useState(false)
   const [edit, setEdit] = useState(null) // { name, start, first } while the Company & Financial Year dialog is open
   const [refresh, setRefresh] = useState(0)
+  const [newPartner, setNewPartner] = useState(0) // bumps to open the New Customer / New Vendor form
 
   useEffect(() => {
     listLocations().then((l) => {
@@ -91,6 +92,13 @@ export default function Accounting() {
   // Opens a window and hands it a command, e.g. run('daybook', { name: 'voucher', arg: 'Payment' })
   const run = (win, command) => { setTab(win); setCmd(command ? { ...command, nonce: Math.random() } : null) }
   const done = () => setCmd(null)
+
+  // Quick actions of the Business Master dashboard
+  function masterAction(name) {
+    if (name === 'customer' || name === 'vendor') { setTab(name === 'customer' ? 'customers' : 'vendors'); setNewPartner(Math.random()) }
+    else if (name === 'ledger') run('ledgers', { name: 'newLedger' })
+    else if (name === 'bank') run('ledgers', { name: 'newLedger', arg: 'bank' })
+  }
 
   async function doBackup() {
     setBusy('backup')
@@ -227,7 +235,7 @@ export default function Accounting() {
       </div>
       <div className="min-h-[60vh] bg-white p-4">
         {MASTERS.includes(tab) ? (
-          tab === 'bm' ? <BusinessMaster key="bm" /> : <PartnerMaster key={tab} partnerType={tab === 'customers' ? 'Customer' : 'Vendor'} />
+          tab === 'bm' ? <BusinessMaster key="bm" onAction={masterAction} /> : <PartnerMaster key={tab} partnerType={tab === 'customers' ? 'Customer' : 'Vendor'} newNonce={newPartner} />
         ) : loading ? <LoadingSpinner /> : !company ? (
           <div className="p-8 text-center text-sm text-navy-500">Add a company in Settings first.</div>
         ) : !settings ? (

@@ -214,3 +214,46 @@ export async function getVoucherEntries(voucherId) {
   if (e.error) throw e.error
   return { voucher: v.data, lines: (e.data || []).map((x) => ({ ledger: x.acc_ledgers?.name || '', debit: Number(x.debit), credit: Number(x.credit) })) }
 }
+
+// ---- Contacts and bank accounts of a partner (separate tables). Missing tables are treated as "none yet".
+export async function getPartnerExtras(id, withBank = false) {
+  const out = { contacts: [], banks: [] }
+  const c = await supabase.from('partner_contacts').select('*').eq('partner_id', id).order('sort_no')
+  if (!c.error) out.contacts = c.data
+  if (withBank) {
+    const b = await supabase.from('partner_bank_accounts').select('*').eq('partner_id', id).order('sort_no')
+    if (!b.error) out.banks = b.data
+  }
+  return out
+}
+
+export async function savePartnerExtras(id, contacts, banks, { saveBanks = false } = {}) {
+  const clean = (rows) => rows.map(({ id: _i, created_at: _c, ...r }, i) => ({ ...r, partner_id: id, sort_no: i }))
+  const d1 = await supabase.from('partner_contacts').delete().eq('partner_id', id)
+  if (d1.error) throw d1.error
+  if (contacts.length) { const r = await supabase.from('partner_contacts').insert(clean(contacts)); if (r.error) throw r.error }
+  if (saveBanks) {
+    const d2 = await supabase.from('partner_bank_accounts').delete().eq('partner_id', id)
+    if (d2.error) throw d2.error
+    if (banks.length) { const r = await supabase.from('partner_bank_accounts').insert(clean(banks)); if (r.error) throw r.error }
+  }
+}
+
+// All accounting ledgers (any company) for the "Accounting" tab drop-downs.
+export async function listLedgerChoices() {
+  const { data, error } = await supabase.from('acc_ledgers').select('id,name,company_id,active').order('name')
+  return error ? [] : data
+}
+
+// Numbers for the Business Master dashboard cards.
+export async function getMasterCounts() {
+  const head = (t) => supabase.from(t).select('id', { count: 'exact', head: true })
+  const [led, bank, grp, led2] = await Promise.all([
+    head('acc_ledgers'), head('partner_bank_accounts'),
+    supabase.from('acc_groups').select('id').ilike('name', 'bank accounts'),
+    supabase.from('acc_ledgers').select('id,group_id')
+  ])
+  const bankGroups = new Set((grp.data || []).map((g) => g.id))
+  const bankLedgers = (led2.data || []).filter((l) => bankGroups.has(l.group_id)).length
+  return { ledgers: led.error ? 0 : led.count || 0, banks: (bank.error ? 0 : bank.count || 0) + bankLedgers }
+}

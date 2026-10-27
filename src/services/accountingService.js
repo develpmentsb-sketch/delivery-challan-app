@@ -38,7 +38,11 @@ export async function saveLedger(company, ledger) {
   const row = {
     name: ledger.name.trim(), group_id: ledger.group_id,
     opening_balance: Number(ledger.opening_balance || 0), opening_type: ledger.opening_type || 'Dr',
-    active: ledger.active !== false
+    active: ledger.active !== false,
+    code: ledger.code?.trim() || null, remarks: ledger.remarks?.trim() || null,
+    gst_applicable: Boolean(ledger.gst_applicable), gst_category: ledger.gst_applicable ? (ledger.gst_category?.trim() || null) : null,
+    cost_centre_applicable: Boolean(ledger.cost_centre_applicable),
+    bank_name: ledger.bank_name?.trim() || null, bank_account_no: ledger.bank_account_no?.trim() || null, ifsc: ledger.ifsc?.trim().toUpperCase() || null
   }
   if (ledger.id) {
     const { error } = await supabase.from('acc_ledgers').update(row).eq('id', ledger.id)
@@ -47,6 +51,11 @@ export async function saveLedger(company, ledger) {
     const { error } = await supabase.from('acc_ledgers').insert({ ...row, company_id: company })
     if (error) throw error
   }
+}
+
+export async function setLedgerActive(id, active) {
+  const { error } = await supabase.from('acc_ledgers').update({ active }).eq('id', id)
+  if (error) throw error
 }
 
 export async function deleteLedger(id) {

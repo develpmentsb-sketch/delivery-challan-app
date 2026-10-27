@@ -1,16 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Plus, Search, Pencil, Trash2, FileSpreadsheet, Upload, X, Save, Loader2, Star, ExternalLink } from 'lucide-react'
 import Header from '../components/Header'
 import LoadingSpinner from '../components/LoadingSpinner'
 import EmptyState from '../components/EmptyState'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
-import { listPartners, createPartner, updatePartner, deletePartner, isDuplicateGSTIN, bulkImportPartners, getPartnerBalances, getDeleteBlocks } from '../services/partnerService'
+import { listPartners, createPartner, updatePartner, deletePartner, isDuplicateGSTIN, bulkImportPartners, getPartnerBalances, getDeleteBlocks, getPartnerExtras, savePartnerExtras, listLedgerChoices } from '../services/partnerService'
 import { listLocations } from '../lib/locations'
 import { validatePartner } from '../utils/validation'
 import { exportPartnersToExcel, readExcelFile } from '../utils/excelExport'
 import { INDIAN_STATES } from '../lib/constants'
 import { useToast } from '../context/ToastContext'
+import { useAuth } from '../context/AuthContext'
 import PartnerLedgerModal from '../components/PartnerLedgerModal'
 import { suggestTds } from '../utils/tds'
 import { gstinStatus, gstinDetails, parseGstPortalText } from '../utils/gst'
@@ -28,8 +30,24 @@ const TDS_SECTIONS = [
 const TABS = [
   { id: 'general', label: 'General' },
   { id: 'addresses', label: 'Addresses' },
-  { id: 'payment', label: 'Payment & Tax' }
+  { id: 'payment', label: 'Payment & Tax' },
+  { id: 'contacts', label: 'Contacts' },
+  { id: 'banking', label: 'Banking' },
+  { id: 'accounting', label: 'Accounting' }
 ]
+const YES_NO = ['', 'Yes', 'No']
+const ACCOUNT_TYPES = ['Current', 'Savings', 'Cash Credit', 'Overdraft']
+const LEDGER_LINKS = [
+  ['receivable_ledger_id', 'Accounts Receivable ledger'], ['payable_ledger_id', 'Accounts Payable ledger'],
+  ['sales_ledger_id', 'Sales account'], ['purchase_ledger_id', 'Purchase account'],
+  ['advance_received_ledger_id', 'Advance Received account'], ['advance_paid_ledger_id', 'Advance Paid account']
+]
+const EXTRA_TEXT = ['alt_mobile', 'website', 'business_reg_no', 'business_category', 'industry_type', 'salesperson', 'remarks', 'currency', 'price_list', 'cost_centre', 'gst_applicable', 'tax_treatment', 'default_gst_category', 'tds_applicable', 'einvoice_applicable', 'eway_applicable', 'place_of_supply']
+const emptyContact = () => ({ name: '', designation: '', mobile: '', email: '', is_primary: false })
+const emptyBank = () => ({ bank_name: '', holder_name: '', account_no: '', ifsc: '', branch: '', account_type: 'Current', is_default: false })
+const MOBILE_RE = /^[6-9]\d{9}$/
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/
 const statusBadge = (st) =>
   st === 'Blocked' ? 'bg-brick/10 text-brick' : st === 'On Hold' ? 'bg-gold-100 text-gold-700' : 'bg-forest-100 text-forest-600'
 
@@ -38,12 +56,16 @@ const emptyPartner = (type = 'Vendor') => ({
   bill_to_address_line1: '', bill_to_address_line2: '', bill_to_city: '', bill_to_district: '',
   bill_to_state: '', bill_to_state_code: '', bill_to_pin: '', company_location_id: null, active: true,
   vendor_code: '', vendor_group: '', rating: '', vendor_status: 'Active', gst_type: 'Regular', msme_number: '',
-  payment_terms: '', credit_days: '', credit_limit: '', tds_section: '', tds_rate: ''
+  payment_terms: '', credit_days: '', credit_limit: '', tds_section: '', tds_rate: '',
+  alt_mobile: '', website: '', business_reg_no: '', business_category: '', industry_type: '', salesperson: '', remarks: '',
+  currency: 'INR', price_list: '', cost_centre: '', gst_applicable: '', tax_treatment: '', default_gst_category: '', tds_applicable: '',
+  einvoice_applicable: '', eway_applicable: '', place_of_supply: '',
+  receivable_ledger_id: '', payable_ledger_id: '', sales_ledger_id: '', purchase_ledger_id: '', advance_received_ledger_id: '', advance_paid_ledger_id: ''
 })
 
 const emptyShipTo = () => ({ ship_to_name: '', address_line1: '', address_line2: '', city: '', district: '', state: '', state_code: '', pin_code: '', gstin: '', is_default: false })
 
-export default function PartnerMaster({ partnerType = 'Vendor' }) {
+export default function PartnerMaster({ partnerType = 'Vendor', newNonce = 0 }) {
   const isCustomer = partnerType === 'Customer'
   const noun = partnerType // 'Vendor' or 'Customer'
   const nounLc = noun.toLowerCase()
@@ -66,6 +88,12 @@ export default function PartnerMaster({ partnerType = 'Vendor' }) {
   const [toDelete, setToDelete] = useState(null)
   const [viewOnly, setViewOnly] = useState(false)
   const [tab, setTab] = useState('general')
+  const { can } = useAuth()
+  const canBank = can('partners.write') // bank details are hidden from read-only users
+  const location = useLocation()
+  const [contacts, setContacts] = useState([])
+  const [banks, setBanks] = useState([])
+  const [ledgerChoices, setLedgerChoices] = useState([])
   // true while the TDS rate on screen was filled in automatically (so it can follow GSTIN / PAN changes)
   const [tdsAuto, setTdsAuto] = useState(false)
 
@@ -127,9 +155,18 @@ export default function PartnerMaster({ partnerType = 'Vendor' }) {
     return filtered.slice(start, start + PAGE_SIZE)
   }, [filtered, page])
 
-  function openCreate() { setEditing(null); setForm(emptyPartner(partnerType)); setShipToList([]); setErrors({}); setViewOnly(false); setTab('general'); setTdsAuto(false); setPasteOpen(false); setPasteText(''); setModalOpen(true) }
-  function openEdit(p) { setEditing(p); setForm(p); setShipToList(p.partner_ship_to || []); setErrors({}); setViewOnly(false); setTab('general'); setTdsAuto(false); setModalOpen(true) }
-  function openView(p) { setEditing(p); setForm(p); setShipToList(p.partner_ship_to || []); setErrors({}); setViewOnly(true); setTab('general'); setTdsAuto(false); setModalOpen(true) }
+  function openCreate() { setContacts([]); setBanks([]); setEditing(null); setForm(emptyPartner(partnerType)); setShipToList([]); setErrors({}); setViewOnly(false); setTab('general'); setTdsAuto(false); setPasteOpen(false); setPasteText(''); setModalOpen(true) }
+  function loadExtras(p) { setContacts([]); setBanks([]); getPartnerExtras(p.id, canBank).then((x) => { setContacts(x.contacts); setBanks(x.banks) }) }
+  function openEdit(p) { loadExtras(p); setEditing(p); setForm(p); setShipToList(p.partner_ship_to || []); setErrors({}); setViewOnly(false); setTab('general'); setTdsAuto(false); setModalOpen(true) }
+  function openView(p) { loadExtras(p); setEditing(p); setForm(p); setShipToList(p.partner_ship_to || []); setErrors({}); setViewOnly(true); setTab('general'); setTdsAuto(false); setModalOpen(true) }
+
+  useEffect(() => { listLedgerChoices().then(setLedgerChoices) }, [])
+  // "New Customer / New Vendor" quick actions open the form straight away
+  useEffect(() => { if (newNonce || new URLSearchParams(location.search).get('new')) openCreate() }, [newNonce]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const setContact = (i, patch) => setContacts((l) => l.map((c, k) => (k === i ? { ...c, ...patch } : c)))
+  const setBank = (i, patch) => setBanks((l) => l.map((c, k) => (k === i ? { ...c, ...patch } : c)))
+  const only = (list, i, key) => list.map((c, k) => ({ ...c, [key]: k === i }))
 
   function addShipTo() { setShipToList((prev) => [...prev, emptyShipTo()]) }
   function updateShipTo(idx, patch) {
@@ -196,7 +233,20 @@ export default function PartnerMaster({ partnerType = 'Vendor' }) {
     if (form.credit_limit !== '' && form.credit_limit !== null && !(num(form.credit_limit) >= 0)) errs.credit_limit = 'Enter 0 or more'
     if (form.credit_days !== '' && form.credit_days !== null && !(num(form.credit_days) >= 0)) errs.credit_days = 'Enter 0 or more'
     if (form.tds_rate !== '' && form.tds_rate !== null && !(num(form.tds_rate) >= 0 && num(form.tds_rate) <= 100)) errs.tds_rate = 'Enter 0 to 100'
-    if (!valid || Object.keys(errs).length) { setErrors(errs); if (errs.name || errs.gstin || errs.pan) setTab('general'); else if (errs.bill_to_pin) setTab('addresses'); else setTab('payment'); return }
+    if (form.alt_mobile && !MOBILE_RE.test(form.alt_mobile.trim())) errs.alt_mobile = 'Enter a 10-digit mobile number'
+    const usedContacts = contacts.filter((c) => c.name || c.mobile || c.email || c.designation)
+    for (const c of usedContacts) {
+      if (!c.name?.trim()) { setTab('contacts'); return toast.error('Every contact needs a name') }
+      if (c.mobile && !MOBILE_RE.test(c.mobile.trim())) { setTab('contacts'); return toast.error(`Contact ${c.name}: enter a 10-digit mobile number`) }
+      if (c.email && !EMAIL_RE.test(c.email.trim())) { setTab('contacts'); return toast.error(`Contact ${c.name}: the email address looks wrong`) }
+    }
+    const usedBanks = canBank ? banks.filter((b) => b.bank_name || b.account_no || b.ifsc || b.holder_name) : []
+    for (const b of usedBanks) {
+      if (!b.bank_name?.trim() || !b.account_no?.trim() || !b.ifsc?.trim()) { setTab('banking'); return toast.error('Each bank account needs the bank name, account number and IFSC') }
+      if (!/^\d{9,18}$/.test(b.account_no.trim())) { setTab('banking'); return toast.error(`${b.bank_name}: the account number should be 9 to 18 digits`) }
+      if (!IFSC_RE.test(b.ifsc.trim().toUpperCase())) { setTab('banking'); return toast.error(`${b.bank_name}: the IFSC code looks wrong (example SBIN0001234)`) }
+    }
+    if (!valid || Object.keys(errs).length) { setErrors(errs); if (errs.name || errs.gstin || errs.pan || errs.alt_mobile) setTab('general'); else if (errs.bill_to_pin) setTab('addresses'); else setTab('payment'); return }
     setSaving(true)
     try {
       if (form.gstin) {
@@ -218,11 +268,17 @@ export default function PartnerMaster({ partnerType = 'Vendor' }) {
         msme_number: form.msme_number?.trim() || null,
         active: form.vendor_status === 'Active'
       }
+      EXTRA_TEXT.forEach((k) => { payload[k] = (form[k] ?? '').toString().trim() || null })
+      LEDGER_LINKS.forEach(([k]) => { payload[k] = form[k] || null })
+      const cleanContacts = usedContacts.map((c) => ({ name: c.name.trim(), designation: c.designation?.trim() || null, mobile: c.mobile?.trim() || null, email: c.email?.trim() || null, is_primary: Boolean(c.is_primary) }))
+      const cleanBanks = usedBanks.map((b) => ({ bank_name: b.bank_name.trim(), holder_name: b.holder_name?.trim() || null, account_no: b.account_no.trim(), ifsc: b.ifsc.trim().toUpperCase(), branch: b.branch?.trim() || null, account_type: b.account_type || null, is_default: Boolean(b.is_default) }))
       if (editing) {
         await updatePartner(editing.id, payload, shipToList)
+        await savePartnerExtras(editing.id, cleanContacts, cleanBanks, { saveBanks: canBank })
         toast.success(`${noun} updated`)
       } else {
-        await createPartner(payload, shipToList)
+        const created = await createPartner(payload, shipToList)
+        if (cleanContacts.length || cleanBanks.length) await savePartnerExtras(created.id, cleanContacts, cleanBanks, { saveBanks: canBank })
         toast.success(`${noun} added`)
       }
       setModalOpen(false)
@@ -427,7 +483,7 @@ export default function PartnerMaster({ partnerType = 'Vendor' }) {
               {/* Tabs */}
               <div className="border-b border-navy-100 px-5">
                 <div className="flex flex-wrap gap-1">
-                  {TABS.map((t) => (
+                  {TABS.filter((t) => t.id !== 'banking' || canBank).map((t) => (
                     <button
                       key={t.id}
                       type="button"
@@ -457,6 +513,13 @@ export default function PartnerMaster({ partnerType = 'Vendor' }) {
                     <Row label="Phone"><input disabled={viewOnly} className="input" value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Row>
                     <Row label="MSME / Udyam No."><input disabled={viewOnly} className="input" placeholder="UDYAM-XX-00-0000000" value={form.msme_number || ''} onChange={(e) => setForm({ ...form, msme_number: e.target.value.toUpperCase() })} /></Row>
                     <Row label="Email"><input disabled={viewOnly} className="input" type="email" value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Row>
+                    <Row label="Alternate Mobile" error={errors.alt_mobile}><input disabled={viewOnly} className="input" value={form.alt_mobile || ''} onChange={(e) => setForm({ ...form, alt_mobile: e.target.value })} /></Row>
+                    <Row label="Website"><input disabled={viewOnly} className="input" value={form.website || ''} onChange={(e) => setForm({ ...form, website: e.target.value })} /></Row>
+                    <Row label="Business Reg. No."><input disabled={viewOnly} className="input" value={form.business_reg_no || ''} onChange={(e) => setForm({ ...form, business_reg_no: e.target.value })} /></Row>
+                    <Row label="Business Category"><input disabled={viewOnly} className="input" value={form.business_category || ''} onChange={(e) => setForm({ ...form, business_category: e.target.value })} /></Row>
+                    <Row label="Industry Type"><input disabled={viewOnly} className="input" value={form.industry_type || ''} onChange={(e) => setForm({ ...form, industry_type: e.target.value })} /></Row>
+                    <Row label="Account Manager"><input disabled={viewOnly} className="input" placeholder="Salesperson / account manager" value={form.salesperson || ''} onChange={(e) => setForm({ ...form, salesperson: e.target.value })} /></Row>
+                    <div className="md:col-span-2"><Row label="Remarks"><textarea disabled={viewOnly} rows={2} className="input" value={form.remarks || ''} onChange={(e) => setForm({ ...form, remarks: e.target.value })} /></Row></div>
                   </div>
                 )}
 
@@ -552,6 +615,87 @@ export default function PartnerMaster({ partnerType = 'Vendor' }) {
                         <p className="ml-[142px] text-[11px] text-navy-400">{tdsAuto ? 'Auto-filled: ' : 'Suggested: '}{tdsHint.note}</p>
                       )}
                     </div>}
+                    <div className="space-y-2.5 md:col-span-2">
+                      <h4 className="border-t border-navy-100 pt-3 text-xs font-semibold uppercase text-gold-600">GST, Tax &amp; Defaults</h4>
+                      <div className="grid gap-x-10 gap-y-2.5 md:grid-cols-2">
+                        <Row label="GST Applicable"><select disabled={viewOnly} className="input" value={form.gst_applicable || ''} onChange={(e) => setForm({ ...form, gst_applicable: e.target.value })}>{YES_NO.map((v) => <option key={v} value={v}>{v || 'Not set'}</option>)}</select></Row>
+                        <Row label="Place of Supply"><input disabled={viewOnly} className="input" placeholder="State" value={form.place_of_supply || ''} onChange={(e) => setForm({ ...form, place_of_supply: e.target.value })} /></Row>
+                        <Row label="Tax Treatment"><input disabled={viewOnly} className="input" placeholder="e.g. Taxable, Exempt, Nil-rated" value={form.tax_treatment || ''} onChange={(e) => setForm({ ...form, tax_treatment: e.target.value })} /></Row>
+                        <Row label="Default GST Category"><input disabled={viewOnly} className="input" placeholder="e.g. 18% Goods" value={form.default_gst_category || ''} onChange={(e) => setForm({ ...form, default_gst_category: e.target.value })} /></Row>
+                        <Row label="TDS Applicable"><select disabled={viewOnly} className="input" value={form.tds_applicable || ''} onChange={(e) => setForm({ ...form, tds_applicable: e.target.value })}>{YES_NO.map((v) => <option key={v} value={v}>{v || 'Not set'}</option>)}</select></Row>
+                        <Row label="E-Invoice"><select disabled={viewOnly} className="input" value={form.einvoice_applicable || ''} onChange={(e) => setForm({ ...form, einvoice_applicable: e.target.value })}>{YES_NO.map((v) => <option key={v} value={v}>{v || 'Not set'}</option>)}</select></Row>
+                        <Row label="E-Way Bill"><select disabled={viewOnly} className="input" value={form.eway_applicable || ''} onChange={(e) => setForm({ ...form, eway_applicable: e.target.value })}>{YES_NO.map((v) => <option key={v} value={v}>{v || 'Not set'}</option>)}</select></Row>
+                        <Row label="Currency"><input disabled={viewOnly} className="input" value={form.currency || ''} onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })} /></Row>
+                        <Row label="Price List"><input disabled={viewOnly} className="input" value={form.price_list || ''} onChange={(e) => setForm({ ...form, price_list: e.target.value })} /></Row>
+                        <Row label="Cost / Profit Centre"><input disabled={viewOnly} className="input" value={form.cost_centre || ''} onChange={(e) => setForm({ ...form, cost_centre: e.target.value })} /></Row>
+                      </div>
+                      <p className="text-[11px] text-navy-400">E-invoice and e-way bill are recorded exactly as you choose - nothing is switched on automatically.</p>
+                    </div>
+                  </div>
+                )}
+
+                {tab === 'contacts' && (
+                  <div className="min-h-[200px] space-y-3">
+                    {!viewOnly && <button type="button" className="btn-outline py-1" onClick={() => setContacts((l) => [...l, emptyContact()])}><Plus size={14} /> Add Contact</button>}
+                    {!contacts.length && <p className="text-sm text-navy-400">No extra contacts. The main contact person is on the General tab.</p>}
+                    {contacts.map((c, i) => (
+                      <div key={i} className="rounded-lg border border-navy-100 p-3">
+                        <div className="mb-2 flex items-center justify-between">
+                          <label className="flex items-center gap-2 text-xs font-semibold text-navy-500">
+                            <input disabled={viewOnly} type="checkbox" checked={Boolean(c.is_primary)} onChange={(e) => setContacts((l) => (e.target.checked ? only(l, i, 'is_primary') : l.map((x, k) => (k === i ? { ...x, is_primary: false } : x))))} /> Primary contact
+                          </label>
+                          {!viewOnly && <button type="button" className="text-brick" onClick={() => setContacts((l) => l.filter((_, k) => k !== i))}><Trash2 size={14} /></button>}
+                        </div>
+                        <div className="grid gap-2 md:grid-cols-4">
+                          <input disabled={viewOnly} className="input" placeholder="Name *" value={c.name || ''} onChange={(e) => setContact(i, { name: e.target.value })} />
+                          <input disabled={viewOnly} className="input" placeholder="Designation" value={c.designation || ''} onChange={(e) => setContact(i, { designation: e.target.value })} />
+                          <input disabled={viewOnly} className="input" placeholder="Mobile" value={c.mobile || ''} onChange={(e) => setContact(i, { mobile: e.target.value })} />
+                          <input disabled={viewOnly} className="input" placeholder="Email" value={c.email || ''} onChange={(e) => setContact(i, { email: e.target.value })} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {tab === 'banking' && canBank && (
+                  <div className="min-h-[200px] space-y-3">
+                    {!viewOnly && <button type="button" className="btn-outline py-1" onClick={() => setBanks((l) => [...l, emptyBank()])}><Plus size={14} /> Add Bank Account</button>}
+                    {!banks.length && <p className="text-sm text-navy-400">No bank accounts added.</p>}
+                    {banks.map((b, i) => (
+                      <div key={i} className="rounded-lg border border-navy-100 p-3">
+                        <div className="mb-2 flex items-center justify-between">
+                          <label className="flex items-center gap-2 text-xs font-semibold text-navy-500">
+                            <input disabled={viewOnly} type="checkbox" checked={Boolean(b.is_default)} onChange={(e) => setBanks((l) => (e.target.checked ? only(l, i, 'is_default') : l.map((x, k) => (k === i ? { ...x, is_default: false } : x))))} /> Default account
+                          </label>
+                          {!viewOnly && <button type="button" className="text-brick" onClick={() => setBanks((l) => l.filter((_, k) => k !== i))}><Trash2 size={14} /></button>}
+                        </div>
+                        <div className="grid gap-2 md:grid-cols-3">
+                          <input disabled={viewOnly} className="input" placeholder="Bank name *" value={b.bank_name || ''} onChange={(e) => setBank(i, { bank_name: e.target.value })} />
+                          <input disabled={viewOnly} className="input" placeholder="Account holder name" value={b.holder_name || ''} onChange={(e) => setBank(i, { holder_name: e.target.value })} />
+                          <input disabled={viewOnly} className="input" placeholder="Account number *" value={b.account_no || ''} onChange={(e) => setBank(i, { account_no: e.target.value })} />
+                          <input disabled={viewOnly} className="input" placeholder="IFSC code *" maxLength={11} value={b.ifsc || ''} onChange={(e) => setBank(i, { ifsc: e.target.value.toUpperCase() })} />
+                          <input disabled={viewOnly} className="input" placeholder="Branch" value={b.branch || ''} onChange={(e) => setBank(i, { branch: e.target.value })} />
+                          <select disabled={viewOnly} className="input" value={b.account_type || 'Current'} onChange={(e) => setBank(i, { account_type: e.target.value })}>{ACCOUNT_TYPES.map((t) => <option key={t}>{t}</option>)}</select>
+                        </div>
+                      </div>
+                    ))}
+                    <p className="text-[11px] text-navy-400">Bank details are visible only to users who can edit partners.</p>
+                  </div>
+                )}
+
+                {tab === 'accounting' && (
+                  <div className="min-h-[200px]">
+                    <div className="grid gap-x-10 gap-y-2.5 md:grid-cols-2">
+                      {LEDGER_LINKS.map(([key, label]) => (
+                        <Row key={key} label={label}>
+                          <select disabled={viewOnly} className="input" value={form[key] || ''} onChange={(e) => setForm({ ...form, [key]: e.target.value })}>
+                            <option value="">Not linked</option>
+                            {ledgerChoices.filter((l) => l.active !== false || l.id === form[key]).map((l) => <option key={l.id} value={l.id}>{l.name}{locationsById[l.company_id] ? ` - ${locationsById[l.company_id]}` : ''}</option>)}
+                          </select>
+                        </Row>
+                      ))}
+                    </div>
+                    <p className="mt-3 text-[11px] text-navy-400">These are the accounts this {nounLc} normally uses. The party ledger itself is created automatically from Accounting &gt; Ledgers &gt; Sync.</p>
                   </div>
                 )}
               </div>
