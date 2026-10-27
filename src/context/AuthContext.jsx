@@ -66,10 +66,13 @@ export function AuthProvider({ children }) {
       isAdmin: role === 'admin',
       // 'users.approve' = an active admin, or a user an admin marked as Manager (profiles.can_approve)
       canApprove: Boolean(profile?.is_active && (profile.role === 'admin' || profile.can_approve)),
-      can: (permission) =>
-        permission === 'users.approve'
-          ? Boolean(profile?.is_active && (profile.role === 'admin' || profile.can_approve))
-          : canRole(role, permission),
+      can: (permission) => {
+        const manager = Boolean(profile?.is_active && (profile.role === 'admin' || profile.can_approve))
+        if (permission === 'users.approve') return manager
+        // Delete is for Admins and Managers (an Operator marked "Can approve"); Viewers never delete.
+        if (permission.endsWith('.delete') && permission !== 'users.delete' && manager && role !== 'viewer') return true
+        return canRole(role, permission)
+      },
       refreshProfile: loadProfile,
       signIn, signUp, signOut, changePassword, signInWithOAuth, resetPassword, verifyEmailOtp, resendEmailOtp, sendLoginOtp
     }

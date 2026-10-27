@@ -197,6 +197,7 @@ export default function Users() {
             ))}
           </tbody>
         </table>
+        <p className="mt-3 text-xs text-navy-400">Managers (an Operator with "Can approve" ticked) can also delete challans, items, partners and ledgers - but only records that have no entries or transactions. Viewers can never delete.</p>
       </div>
       )}
     </div>
