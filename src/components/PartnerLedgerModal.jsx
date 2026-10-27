@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { X, FileSpreadsheet } from 'lucide-react'
+import { X, FileSpreadsheet, Minus, Maximize2, Minimize2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import LoadingSpinner from './LoadingSpinner'
 import { getPartnerLedger } from '../services/partnerService'
@@ -15,6 +15,8 @@ export default function PartnerLedgerModal({ partner, companyNames, onClose }) {
   const [active, setActive] = useState(0)
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [mini, setMini] = useState(false) // minimized to a small bar at the bottom
+  const [full, setFull] = useState(false) // maximized
 
   useEffect(() => {
     getPartnerLedger(partner.id).then(setBlocks).catch((e) => setError(e.message || 'Could not load the ledger'))
@@ -49,12 +51,26 @@ export default function PartnerLedgerModal({ partner, companyNames, onClose }) {
     XLSX.writeFile(wb, `Ledger-${partner.name.replace(/[^\w]+/g, '_')}.xlsx`)
   }
 
+  if (mini) {
+    return (
+      <div className="fixed bottom-3 left-3 z-[95] flex items-center gap-1 rounded-lg bg-navy py-1.5 pl-4 pr-2 shadow-xl">
+        <button className="max-w-[240px] truncate text-sm font-semibold text-white" title="Restore" onClick={() => setMini(false)}>Ledger - {partner.name}</button>
+        <button onClick={() => setMini(false)} className="p-1.5 text-white/70 hover:text-white" title="Restore"><Maximize2 size={15} /></button>
+        <button onClick={onClose} className="p-1.5 text-white/70 hover:text-white" title="Close"><X size={16} /></button>
+      </div>
+    )
+  }
+
   return (
-    <div className="fixed inset-0 z-[95] flex items-center justify-center bg-navy-900/50 p-4">
-      <div className="card flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden bg-white !p-0">
-        <div className="flex items-center justify-between bg-navy px-5 py-3">
+    <div className={`fixed inset-0 z-[95] flex items-center justify-center bg-navy-900/50 ${full ? 'p-0' : 'p-4'}`}>
+      <div className={`card flex flex-col overflow-hidden bg-white !p-0 ${full ? 'h-screen max-h-screen w-screen max-w-none !rounded-none' : 'max-h-[92vh] w-full max-w-4xl'}`}>
+        <div className="flex items-center justify-between bg-navy py-2 pl-5 pr-2">
           <h3 className="text-sm font-semibold text-white">Ledger - {partner.name}</h3>
-          <button onClick={onClose} className="text-white/70 hover:text-white"><X size={18} /></button>
+          <div className="flex items-center">
+            <button onClick={() => setMini(true)} className="p-2 text-white/70 hover:text-white" title="Minimize"><Minus size={16} /></button>
+            <button onClick={() => setFull((v) => !v)} className="p-2 text-white/70 hover:text-white" title={full ? 'Restore down' : 'Maximize'}>{full ? <Minimize2 size={15} /> : <Maximize2 size={15} />}</button>
+            <button onClick={onClose} className="p-2 text-white/70 hover:text-white" title="Close"><X size={18} /></button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto p-5">
           {error ? <p className="text-sm text-brick">{error}</p> : !blocks ? <LoadingSpinner /> : !blocks.length ? (
