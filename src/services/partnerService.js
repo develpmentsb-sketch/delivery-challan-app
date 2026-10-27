@@ -102,7 +102,7 @@ export async function getPartnerLedger(partnerId) {
       entries: entries.map((e) => ({
         date: e.acc_vouchers.voucher_date, voucher: `${e.acc_vouchers.voucher_type} ${e.acc_vouchers.voucher_no}`,
         narration: e.acc_vouchers.narration || '', particulars: [...(others[e.voucher_id] || [])].join(', '),
-        debit: Number(e.debit), credit: Number(e.credit), line: e.line_no
+        debit: Number(e.debit), credit: Number(e.credit), line: e.line_no, voucherId: e.voucher_id
       }))
     })
   }
@@ -192,4 +192,15 @@ export async function bulkImportPartners(rows, locations = [], type = 'Vendor') 
   }
 
   return { imported: created, updated }
+}
+
+// The entries posted by one voucher (every ledger it debits / credits), for the "what was posted" view.
+export async function getVoucherEntries(voucherId) {
+  const [v, e] = await Promise.all([
+    supabase.from('acc_vouchers').select('voucher_type,voucher_no,voucher_date,narration,fy').eq('id', voucherId).single(),
+    supabase.from('acc_entries').select('debit,credit,line_no,acc_ledgers(name)').eq('voucher_id', voucherId).order('line_no')
+  ])
+  if (v.error) throw v.error
+  if (e.error) throw e.error
+  return { voucher: v.data, lines: (e.data || []).map((x) => ({ ledger: x.acc_ledgers?.name || '', debit: Number(x.debit), credit: Number(x.credit) })) }
 }

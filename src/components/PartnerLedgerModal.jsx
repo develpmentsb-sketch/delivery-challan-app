@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { X, FileSpreadsheet, Minus, Maximize2, Minimize2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import LoadingSpinner from './LoadingSpinner'
-import { getPartnerLedger } from '../services/partnerService'
+import { getPartnerLedger, getVoucherEntries } from '../services/partnerService'
 
 const inr = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const dmy = (s) => (s ? `${s.slice(8, 10)}-${s.slice(5, 7)}-${s.slice(0, 4)}` : '')
@@ -15,6 +15,7 @@ export default function PartnerLedgerModal({ partner, companyNames, onClose }) {
   const [active, setActive] = useState(0)
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [posted, setPosted] = useState(null) // { loading, error, voucher, lines } - the entries of a clicked voucher
   const [mini, setMini] = useState(false) // minimized to a small bar at the bottom
   const [full, setFull] = useState(false) // maximized
 
@@ -36,6 +37,12 @@ export default function PartnerLedgerModal({ partner, companyNames, onClose }) {
     const cr = rows.reduce((s, r) => s + r.credit, 0)
     return { opening, rows, dr, cr, closing: run }
   }, [block, from, to])
+
+  function showPosted(id) {
+    if (!id) return
+    setPosted({ loading: true })
+    getVoucherEntries(id).then((r) => setPosted(r)).catch((e) => setPosted({ error: e.message || 'Could not load the entry' }))
+  }
 
   function exportExcel() {
     if (!view) return
@@ -96,7 +103,7 @@ export default function PartnerLedgerModal({ partner, companyNames, onClose }) {
                     {view.rows.map((r, i) => (
                       <tr key={i}>
                         <td className="text-xs">{dmy(r.date)}</td>
-                        <td className="text-xs font-semibold text-navy-500">{r.voucher}</td>
+                        <td className="text-xs font-semibold"><button type="button" className="text-navy-500 underline-offset-2 hover:underline" title="Click to see the entry posted" onClick={() => showPosted(r.voucherId)}>{r.voucher}</button></td>
                         <td className="max-w-[300px] truncate text-xs" title={r.narration}>{r.particulars}{r.narration ? <span className="text-navy-400"> - {r.narration}</span> : null}</td>
                         <td className="text-right text-xs tabular-nums">{r.debit ? inr(r.debit) : ''}</td>
                         <td className="text-right text-xs tabular-nums">{r.credit ? inr(r.credit) : ''}</td>
@@ -117,6 +124,32 @@ export default function PartnerLedgerModal({ partner, companyNames, onClose }) {
         </div>
         <div className="flex justify-end border-t border-navy-100 px-5 py-3"><button className="btn-outline" onClick={onClose}>Close</button></div>
       </div>
+      {posted && (
+        <div className="fixed inset-0 z-[96] flex items-center justify-center bg-navy-900/40 p-4" onClick={() => setPosted(null)}>
+          <div className="w-full max-w-2xl overflow-hidden rounded-lg bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between bg-navy px-5 py-2.5">
+              <h3 className="text-sm font-semibold text-white">Entry posted{posted.voucher ? ` - ${posted.voucher.voucher_type} ${posted.voucher.voucher_no}` : ''}</h3>
+              <button onClick={() => setPosted(null)} className="text-white/70 hover:text-white"><X size={18} /></button>
+            </div>
+            <div className="p-5">
+              {posted.error ? <p className="text-sm text-brick">{posted.error}</p> : posted.loading ? <LoadingSpinner /> : (
+                <>
+                  <p className="mb-3 text-xs text-navy-500">Date {dmy(posted.voucher.voucher_date)} &nbsp;|&nbsp; FY {posted.voucher.fy}{posted.voucher.narration ? <> &nbsp;|&nbsp; {posted.voucher.narration}</> : null}</p>
+                  <table className="table-base">
+                    <thead><tr><th>Ledger</th><th className="text-right">Debit</th><th className="text-right">Credit</th></tr></thead>
+                    <tbody>
+                      {posted.lines.map((l, i) => (
+                        <tr key={i}><td className="text-xs">{l.credit > 0 ? <span className="pl-6">To {l.ledger}</span> : <b>{l.ledger}</b>} <span className="text-navy-400">{l.credit > 0 ? 'Cr' : 'Dr'}</span></td><td className="text-right text-xs tabular-nums">{l.debit ? inr(l.debit) : ''}</td><td className="text-right text-xs tabular-nums">{l.credit ? inr(l.credit) : ''}</td></tr>
+                      ))}
+                      <tr className="bg-navy-50 font-semibold"><td className="text-xs">Total</td><td className="text-right text-xs tabular-nums">{inr(posted.lines.reduce((a, l) => a + l.debit, 0))}</td><td className="text-right text-xs tabular-nums">{inr(posted.lines.reduce((a, l) => a + l.credit, 0))}</td></tr>
+                    </tbody>
+                  </table>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
