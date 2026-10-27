@@ -9,7 +9,7 @@ import Pagination from '../components/Pagination'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { listChallans, deleteChallan, getChallan } from '../services/challanService'
 import { listLocations } from '../lib/locations'
-import { listPartners } from '../services/partnerService'
+import { listPartners, getDeleteBlocks } from '../services/partnerService'
 import { formatCurrency } from '../utils/calculations'
 import { exportMasterListReport } from '../utils/excelExport'
 import { openChallanPrintView } from '../utils/pdfGenerator'
@@ -32,6 +32,7 @@ export default function MasterList() {
   const [appliedFilters, setAppliedFilters] = useState(emptyFilters)
   const [page, setPage] = useState(1)
   const [toDelete, setToDelete] = useState(null)
+  const [blocks, setBlocks] = useState({}) // challan id -> why it cannot be deleted
   const [locations, setLocations] = useState([])
   const [groupByCompany, setGroupByCompany] = useState(true)
 
@@ -40,6 +41,7 @@ export default function MasterList() {
     try {
       const rows = await listChallans(f)
       setAll(rows)
+      setBlocks(await getDeleteBlocks('delivery_challans', rows.map((r) => r.id)))
     } catch (err) {
       toast.error(err.message || 'Failed to load master list')
     } finally {
@@ -129,12 +131,17 @@ export default function MasterList() {
 
   async function handleDelete() {
     try {
+      // Ask the database first, so nothing is touched when the challan cannot be deleted.
+      const why = (await getDeleteBlocks('delivery_challans', [toDelete.id]))[toDelete.id]
+      if (why) { toast.error(why); setToDelete(null); return }
       await deleteChallan(toDelete.id)
       toast.success(`${toDelete.dc_number} deleted`)
       setToDelete(null)
       load()
     } catch (err) {
       toast.error(err.message || 'Failed to delete')
+      setToDelete(null)
+      load()
     }
   }
 
@@ -175,8 +182,9 @@ export default function MasterList() {
           <div className="flex gap-1">
             <button title="Print" onClick={() => handlePrint(c, 'print')} className="text-navy-400 hover:text-navy"><Printer size={15} /></button>
             <button title="Download PDF" onClick={() => handlePrint(c, 'pdf')} className="text-navy-400 hover:text-navy"><FileText size={15} /></button>
-            {can('challan.delete') && (
-              <button title="Delete" onClick={() => setToDelete(c)} className="text-navy-400 hover:text-brick"><Trash2 size={15} /></button>
+            {can('challan.delete') && (blocks[c.id]
+              ? <button title={blocks[c.id]} onClick={() => toast.info(blocks[c.id])} className="cursor-not-allowed text-navy-200"><Trash2 size={15} /></button>
+              : <button title="Delete" onClick={() => setToDelete(c)} className="text-navy-400 hover:text-brick"><Trash2 size={15} /></button>
             )}
           </div>
         </td>
@@ -296,7 +304,7 @@ export default function MasterList() {
 
       <ConfirmDialog
         open={Boolean(toDelete)}
-        title="Delete this Delivery Challan?"
+        title="Are you sure you want to delete this record?"
         message={`This will permanently delete ${toDelete?.dc_number}. This action cannot be undone.`}
         confirmLabel="Delete"
         danger
