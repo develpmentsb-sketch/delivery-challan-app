@@ -1,15 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  FileText, CalendarClock, CalendarRange, FileCheck2, FileClock, FileX2, Plus, Truck, ArrowRight
-} from 'lucide-react'
+import { Plus, ArrowRight } from 'lucide-react'
 import EmptyState from '../components/EmptyState'
 import StatusBadge from '../components/StatusBadge'
 import { listRecentChallans, getDashboardStats } from '../services/challanService'
 import { formatCurrency } from '../utils/calculations'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
-import heroImg from '../assets/bg-blur.jpg'
 
 // Keeps the last dashboard data (per user) so coming back to this page is instant;
 // fresh data is still fetched every time and replaces it as soon as it arrives.
@@ -20,6 +17,29 @@ function greetingFor(date) {
   if (h < 12) return 'Good morning'
   if (h < 17) return 'Good afternoon'
   return 'Good evening'
+}
+
+const num = (v) => (v === null || v === undefined ? '–' : Number(v).toLocaleString('en-IN'))
+
+function fmtDate(d) {
+  if (!d || !/^\d{4}-\d{2}-\d{2}/.test(String(d))) return d || '-'
+  const dt = new Date(`${String(d).slice(0, 10)}T00:00:00`)
+  return dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+// One cell in the summary strip. `dot` ties an e-way figure to its colour in the bar above it.
+function Stat({ label, value, loading, dot, tone = 'text-navy' }) {
+  return (
+    <div className="bg-white px-5 py-4">
+      <p className="flex items-center gap-2 text-xs text-navy-400">
+        {dot && <span className={`h-2 w-2 rounded-full ${dot}`} />}
+        {label}
+      </p>
+      <p className={`mt-1.5 font-display text-3xl font-bold tabular-nums ${tone} ${loading ? 'animate-pulse opacity-30' : ''}`}>
+        {value}
+      </p>
+    </div>
+  )
 }
 
 export default function Dashboard() {
@@ -55,111 +75,141 @@ export default function Dashboard() {
   const dateText = now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   const rawName = profile?.full_name || user?.email?.split('@')[0] || ''
   const firstName = rawName ? rawName.split(/[\s._-]+/)[0].replace(/^./, (ch) => ch.toUpperCase()) : ''
+  const loading = !stats
 
-  const cards = [
-    { label: 'Total Challans', value: stats ? stats.total : '–', icon: FileText, tone: 'bg-sky-50 text-sky-600' },
-    { label: "Today's Challans", value: stats ? stats.today : '–', icon: CalendarClock, tone: 'bg-cyan-50 text-cyan-600' },
-    { label: "This Month's", value: stats ? stats.thisMonth : '–', icon: CalendarRange, tone: 'bg-teal-50 text-teal-600' },
-    { label: 'E-Way Generated', value: stats ? stats.ewayGenerated : '–', icon: FileCheck2, tone: 'bg-emerald-50 text-emerald-600' },
-    { label: 'E-Way Pending', value: stats ? stats.ewayPending : '–', icon: FileClock, tone: 'bg-amber-50 text-amber-600' },
-    { label: 'Cancelled', value: stats ? stats.cancelled : '–', icon: FileX2, tone: 'bg-rose-50 text-rose-600' }
-  ]
+  // Share of all challans by e-way state, drawn as one bar. Anything else (drafts etc.) is the grey remainder.
+  const total = stats?.total || 0
+  const seg = (n) => (total > 0 ? Math.max(0, Math.min(100, (n / total) * 100)) : 0)
+  const gen = seg(stats?.ewayGenerated || 0)
+  const pend = seg(stats?.ewayPending || 0)
+  const canc = seg(stats?.cancelled || 0)
+  const pct = total > 0 ? Math.round(gen) : 0
+
+  const pendingText = stats
+    ? stats.ewayPending > 0
+      ? `${stats.ewayPending} e-way bill${stats.ewayPending === 1 ? '' : 's'} still to generate.`
+      : 'No e-way bills waiting.'
+    : 'Loading your numbers...'
 
   return (
-    <div>
-      {/* Greeting banner and number cards side by side */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-stretch">
-      {/* Hero */}
-      <div className="relative flex flex-1 items-center overflow-hidden rounded-3xl px-6 py-5 text-white md:min-w-0 lg:px-8">
-        <img src={heroImg} alt="" className="absolute inset-0 h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-r from-sky-900/90 via-cyan-800/80 to-teal-700/70" />
-        <Truck size={120} className="pointer-events-none absolute -bottom-4 -right-3 text-white/10" />
-        <div className="relative flex w-full flex-wrap items-center justify-between gap-6">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/70">{dateText}</p>
-            <h1 className="mt-1 text-xl font-bold text-white">
-              {greetingFor(now)}{firstName ? `, ${firstName}` : ''}
-            </h1>
-            <p className="mt-0.5 text-xs text-white/80">
-              {stats
-                ? stats.ewayPending > 0
-                  ? `You have ${stats.ewayPending} pending e-way bill${stats.ewayPending === 1 ? '' : 's'} to generate.`
-                  : 'All caught up. No pending e-way bills.'
-                : 'Loading your numbers...'}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {(!can || can('challan.view')) && (
-              <Link to="/master-list" className="btn border border-white/40 text-white hover:bg-white/10">
-                Master List <ArrowRight size={16} />
-              </Link>
-            )}
-          </div>
+    <div className="mx-auto max-w-6xl">
+      {/* Title row */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">
+            {greetingFor(now)}{firstName ? `, ${firstName}` : ''}
+          </h1>
+          <p className="mt-1 text-sm text-navy-500">
+            {dateText}. <span className={stats?.ewayPending > 0 ? 'font-semibold text-amber-700' : ''}>{pendingText}</span>
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {(!can || can('challan.view')) && (
+            <Link to="/master-list" className="btn-outline bg-white">Master List</Link>
+          )}
+          {can && can('challan.create') && (
+            <Link to="/challan/new" className="btn-primary"><Plus size={16} /> New challan</Link>
+          )}
         </div>
       </div>
 
-      {/* Number cards: small cards, 3 per row (2 rows), on the right side */}
-      <div className="relative z-10 grid w-full shrink-0 grid-cols-3 gap-3 md:w-[23rem]">
-        {cards.map((c) => (
-          <div
-            key={c.label}
-            className="rounded-2xl border border-white bg-white p-3.5 shadow-lg shadow-slate-900/5 transition-transform duration-200 hover:-translate-y-0.5"
-          >
-            <div className={`flex h-10 w-10 items-center justify-center rounded-full ${c.tone}`}>
-              <c.icon size={18} />
+      {/* Summary: one panel, two groups, one bar */}
+      <section className="card mt-6 overflow-hidden" aria-label="Summary">
+        <div className="grid gap-px bg-navy-100/70 sm:grid-cols-2">
+          <div>
+            <p className="bg-white px-5 pt-4 text-sm font-semibold text-navy">Challans</p>
+            <div className="grid grid-cols-3 gap-px bg-navy-100/70">
+              <Stat label="Today" value={num(stats?.today)} loading={loading} />
+              <Stat label="This month" value={num(stats?.thisMonth)} loading={loading} />
+              <Stat label="All time" value={num(stats?.total)} loading={loading} />
             </div>
-            <p className={`mt-2 text-2xl font-bold text-navy ${stats ? '' : 'animate-pulse opacity-40'}`}>{c.value}</p>
-            <p className="mt-0.5 text-[11px] leading-tight text-navy-400">{c.label}</p>
           </div>
-        ))}
-      </div>
+          <div>
+            <p className="bg-white px-5 pt-4 text-sm font-semibold text-navy">E-way bills</p>
+            <div className="grid grid-cols-3 gap-px bg-navy-100/70">
+              <Stat label="Generated" value={num(stats?.ewayGenerated)} loading={loading} dot="bg-teal-600" />
+              <Stat
+                label="Pending"
+                value={num(stats?.ewayPending)}
+                loading={loading}
+                dot="bg-amber-500"
+                tone={stats?.ewayPending > 0 ? 'text-amber-700' : 'text-navy'}
+              />
+              <Stat label="Cancelled" value={num(stats?.cancelled)} loading={loading} dot="bg-rose-500" />
+            </div>
+          </div>
+        </div>
 
-      </div>
+        <div className="border-t border-navy-100/70 bg-white px-5 py-4">
+          <div
+            className="flex h-2.5 w-full overflow-hidden rounded-full bg-navy-100/80"
+            role="img"
+            aria-label={stats ? `${pct}% of ${total} challans have an e-way bill generated` : 'Loading'}
+          >
+            <span className="h-full bg-teal-600 transition-[width] duration-700" style={{ width: `${gen}%` }} />
+            <span className="h-full bg-amber-500 transition-[width] duration-700" style={{ width: `${pend}%` }} />
+            <span className="h-full bg-rose-500 transition-[width] duration-700" style={{ width: `${canc}%` }} />
+          </div>
+          <p className="mt-2 text-xs text-navy-400">
+            {stats
+              ? total > 0
+                ? `${pct}% of ${num(total)} challans have an e-way bill generated.`
+                : 'Nothing to show yet. Create a challan to start tracking e-way bills.'
+              : ' '}
+          </p>
+        </div>
+      </section>
 
       {/* Recent challans */}
-      <div className="card mt-6">
-        <div className="flex items-center justify-between px-6 py-4">
-          <h3 className="text-sm font-semibold text-navy">Recent delivery challans</h3>
-          <Link to="/master-list" className="flex items-center gap-1 text-xs font-semibold text-teal-700 hover:underline">
-            View all <ArrowRight size={13} />
+      <section className="card mt-6 overflow-hidden" aria-label="Recent delivery challans">
+        <div className="flex items-center justify-between px-5 py-4">
+          <h2 className="text-sm font-semibold">Recent delivery challans</h2>
+          <Link to="/master-list" className="flex items-center gap-1 text-sm font-semibold text-teal-700 hover:underline">
+            View all <ArrowRight size={14} />
           </Link>
         </div>
         {recentLoading ? (
-          <div className="space-y-3 px-6 pb-6">
-            {[0, 1, 2, 3].map((i) => <div key={i} className="h-12 animate-pulse rounded-xl bg-navy-50/70" />)}
+          <div className="space-y-2 px-5 pb-5">
+            {[0, 1, 2, 3].map((i) => <div key={i} className="h-10 animate-pulse rounded-lg bg-navy-50/80" />)}
           </div>
         ) : recent.length === 0 ? (
           <EmptyState
             title="No delivery challans yet"
             description="Create your first delivery challan to see it here."
-            action={<Link to="/challan/new" className="btn-primary mt-2"><Plus size={16} /> Create Delivery Challan</Link>}
+            action={can && !can('challan.create') ? null : <Link to="/challan/new" className="btn-primary mt-2"><Plus size={16} /> Create Delivery Challan</Link>}
           />
         ) : (
-          <ul className="divide-y divide-navy-100/70 border-t border-navy-100/70">
-            {recent.map((c) => (
-              <li key={c.id} className="flex flex-wrap items-center gap-x-6 gap-y-2 px-6 py-3.5 transition-colors hover:bg-sky-50/40">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
-                  <FileText size={17} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <Link to={`/challan/${c.id}/edit`} className="font-semibold text-navy hover:underline">{c.dc_number}</Link>
-                  <p className="truncate text-xs text-navy-400">
-                    {c.partners?.name || c.bill_to_snapshot?.name || '-'} &middot; {c.dc_date}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-navy">{formatCurrency(c.grand_total)}</p>
-                  <p className="text-xs text-navy-400">{c.vehicle_number || 'No vehicle'}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <StatusBadge status={c.eway_bills?.[0]?.status || 'Not Generated'} />
-                  <StatusBadge status={c.dc_status} />
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className="overflow-x-auto border-t border-navy-100/70">
+            <table className="table-base table-flat min-w-[640px]">
+              <thead>
+                <tr>
+                  <th className="pl-5">Challan</th>
+                  <th>Party</th>
+                  <th className="hidden md:table-cell">Vehicle</th>
+                  <th className="text-right">Amount</th>
+                  <th>E-way bill</th>
+                  <th className="pr-5">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recent.map((c) => (
+                  <tr key={c.id}>
+                    <td className="whitespace-nowrap py-3 pl-5">
+                      <Link to={`/challan/${c.id}/edit`} className="font-semibold text-navy hover:text-teal-700 hover:underline">{c.dc_number}</Link>
+                      <p className="text-xs text-navy-400">{fmtDate(c.dc_date)}</p>
+                    </td>
+                    <td className="max-w-[16rem] truncate">{c.partners?.name || c.bill_to_snapshot?.name || '-'}</td>
+                    <td className="hidden text-navy-500 md:table-cell">{c.vehicle_number || '-'}</td>
+                    <td className="text-right font-semibold tabular-nums">{formatCurrency(c.grand_total)}</td>
+                    <td><StatusBadge status={c.eway_bills?.[0]?.status || 'Not Generated'} /></td>
+                    <td className="pr-5"><StatusBadge status={c.dc_status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-      </div>
+      </section>
     </div>
   )
 }
