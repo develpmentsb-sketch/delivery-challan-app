@@ -6,6 +6,22 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base: process.env.VITE_BASE_PATH || '/',
+  build: {
+    rollupOptions: {
+      output: {
+        // Big libraries get their own files: they are cached between deploys and
+        // only downloaded by the pages that actually use them.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)) return 'vendor-react'
+          if (id.includes('@supabase')) return 'vendor-supabase'
+          if (/node_modules\/(recharts|d3-[^/]+|victory-vendor|recharts-scale)\//.test(id)) return 'vendor-charts'
+          if (id.includes('node_modules/xlsx')) return 'vendor-xlsx'
+          return undefined
+        }
+      }
+    }
+  },
   server: {
     port: 5173
   }
